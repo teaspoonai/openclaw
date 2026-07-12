@@ -33,6 +33,7 @@ import {
   readRecentSessionMessagesWithStats as readRecentSessionMessagesWithStatsFile,
   readRecentSessionMessagesWithStatsAsync as readRecentSessionMessagesWithStatsAsyncFile,
   readRecentSessionTranscriptLines as readRecentSessionTranscriptLinesFile,
+  readSessionMessagesAroundIdWithStatsAsync as readSessionMessagesAroundIdWithStatsAsyncFile,
   readSessionMessagesPageWithStatsAsync as readSessionMessagesPageWithStatsAsyncFile,
   readRecentSessionUsageFromTranscript as readRecentSessionUsageFromTranscriptFile,
   readRecentSessionUsageFromTranscriptAsync as readRecentSessionUsageFromTranscriptAsyncFile,
@@ -47,6 +48,7 @@ import {
   readSessionTitleFieldsFromTranscriptAsync as readSessionTitleFieldsFromTranscriptAsyncFile,
   visitSessionMessages as visitSessionMessagesFile,
   visitSessionMessagesAsync as visitSessionMessagesAsyncFile,
+  resolveSessionMessageAnchorBounds,
 } from "./session-utils.fs.js";
 import type { SessionPreviewItem } from "./session-utils.types.js";
 
@@ -76,6 +78,12 @@ type ReadSessionMessageByIdResult = {
   seq?: number;
   oversized: boolean;
   found: boolean;
+};
+
+type ReadSessionMessagesAroundIdResult = ReadRecentSessionMessagesResult & {
+  found: boolean;
+  hasOverreadContext: boolean;
+  offset: number;
 };
 
 type ResolvedTranscriptReadTarget = {
@@ -620,11 +628,15 @@ export async function readSessionMessageByIdAsync(
 ): Promise<ReadSessionMessageByIdResult> {
   const target = resolveTranscriptReadTarget(scope);
   if (isSqliteReadTarget(target)) {
-    const found = (await readSqliteMessageRecords(target)).find(
-      (record) => record.id === messageId,
-    );
+    const records = await readSqliteMessageRecords(target);
+    const found = records.find((record) => record.id === messageId);
     if (found) {
-      return { found: true, message: found.message, oversized: false, seq: found.seq };
+      return {
+        found: true,
+        message: found.message,
+        oversized: false,
+        seq: found.seq,
+      };
     }
     if (opts?.allowResetArchiveFallback === true) {
       return await readSessionMessageByIdAsyncFile(
@@ -756,6 +768,59 @@ export async function readRecentSessionMessagesWithStatsAsync(
     target.sessionId,
     target.storePath,
     target.sessionFile,
+    opts,
+    target.agentId,
+  );
+}
+
+/** Reads one message-id-anchored page from a single transcript snapshot. */
+export async function readSessionMessagesAroundIdWithStatsAsync(
+  scope: SessionTranscriptReadScope,
+  opts: { messageId: string; maxMessages: number; allowResetArchiveFallback?: boolean },
+): Promise<ReadSessionMessagesAroundIdResult> {
+  const target = resolveTranscriptReadTarget(scope);
+  const sessionFile =
+    !scope.sessionFile &&
+    scope.sessionEntry?.sessionId &&
+    scope.sessionEntry.sessionId !== scope.sessionId
+      ? undefined
+      : target.sessionFile;
+  if (isSqliteReadTarget(target)) {
+    const records = await readSqliteMessageRecords(target);
+    const bounds = resolveSessionMessageAnchorBounds(records, opts.messageId, opts.maxMessages);
+    if (!bounds) {
+      if (opts.allowResetArchiveFallback === true) {
+        return await readSessionMessagesAroundIdWithStatsAsyncFile(
+          target.sessionId,
+          target.storePath,
+          sessionFile,
+          opts,
+          target.agentId,
+        );
+      }
+      return {
+        found: false,
+        hasOverreadContext: false,
+        messages: [],
+        offset: 0,
+        totalMessages: records.length,
+        transcriptPath: target.sessionFile,
+      };
+    }
+    const readStart = Math.max(0, bounds.start - 1);
+    return {
+      found: true,
+      hasOverreadContext: readStart < bounds.start,
+      messages: records.slice(readStart, bounds.endExclusive).map(sqliteRecordMessageWithSeq),
+      offset: bounds.offset,
+      totalMessages: records.length,
+      transcriptPath: target.sessionFile,
+    };
+  }
+  return await readSessionMessagesAroundIdWithStatsAsyncFile(
+    target.sessionId,
+    target.storePath,
+    sessionFile,
     opts,
     target.agentId,
   );

@@ -63,6 +63,7 @@ import {
   findTranscriptEvent,
   patchSessionEntry,
   publishTranscriptUpdate,
+  resolveTranscriptSessionKeyBySessionId,
   withTranscriptWriteLock,
   type SessionTranscriptWriteScope,
   type TranscriptEvent,
@@ -93,7 +94,7 @@ import {
   retainGatewayRootWorkAdmissionContinuation,
   runWithGatewayIndependentRootWorkContinuation,
 } from "../../process/gateway-work-admission.js";
-import { normalizeAgentId } from "../../routing/session-key.js";
+import { normalizeAgentId, scopeLegacySessionKeyToAgent } from "../../routing/session-key.js";
 import { resolveMissingAgentHarnessSessionError } from "../../sessions/agent-harness-session-key.js";
 import { normalizeInputProvenance, type InputProvenance } from "../../sessions/input-provenance.js";
 import { resolveSendPolicy } from "../../sessions/send-policy.js";
@@ -183,6 +184,7 @@ import {
   capArrayByJsonBytes,
   readRecentSessionMessagesWithStatsAsync,
   readSessionMessageByIdAsync,
+  readSessionMessagesAroundIdWithStatsAsync,
   readSessionMessagesPageWithStatsAsync,
   readSessionMessagesAsync,
 } from "../session-transcript-readers.js";
@@ -317,7 +319,10 @@ type ChatHistoryPage = {
   messages: unknown[];
   responseOffset?: number;
   completeCliImport?: true;
-  pagination: {
+  // Absent only for anchored (messageId) reads: the anchor may resolve a
+  // reset-archive transcript that numeric offset cursors cannot address, so
+  // anchored responses expose no paging metadata.
+  pagination?: {
     offset: number;
     totalMessages: number;
     rawPageMessages: number;
@@ -2182,6 +2187,68 @@ function capOffsetChatHistoryProjectedMessages(messages: unknown[], max: number)
   return messages.slice(safeStart);
 }
 
+function resolveChatHistoryMessageGroup(
+  messages: unknown[],
+  index: number,
+): { start: number; end: number } {
+  const seq = readChatHistoryMessageSeq(messages[index]);
+  if (seq === undefined) {
+    return { start: index, end: index + 1 };
+  }
+  let start = index;
+  let end = index + 1;
+  while (start > 0 && readChatHistoryMessageSeq(messages[start - 1]) === seq) {
+    start -= 1;
+  }
+  while (end < messages.length && readChatHistoryMessageSeq(messages[end]) === seq) {
+    end += 1;
+  }
+  return { start, end };
+}
+
+function capChatHistoryAroundMessage(params: {
+  messages: unknown[];
+  messageId: string;
+  fits: (messages: unknown[]) => boolean;
+}): unknown[] | undefined {
+  const anchorIndex = params.messages.findIndex(
+    (message) => readChatHistoryMessageId(message) === params.messageId,
+  );
+  if (anchorIndex === -1) {
+    return undefined;
+  }
+  const anchorGroup = resolveChatHistoryMessageGroup(params.messages, anchorIndex);
+  if (!params.fits(params.messages.slice(anchorGroup.start, anchorGroup.end))) {
+    return [params.messages[anchorIndex]];
+  }
+
+  let { start, end } = anchorGroup;
+  let canGrowOlder = start > 0;
+  let canGrowNewer = end < params.messages.length;
+  while (canGrowOlder || canGrowNewer) {
+    if (canGrowOlder) {
+      const olderGroup = resolveChatHistoryMessageGroup(params.messages, start - 1);
+      if (params.fits(params.messages.slice(olderGroup.start, end))) {
+        start = olderGroup.start;
+      } else {
+        canGrowOlder = false;
+      }
+    }
+    canGrowOlder &&= start > 0;
+
+    if (canGrowNewer) {
+      const newerGroup = resolveChatHistoryMessageGroup(params.messages, end);
+      if (params.fits(params.messages.slice(start, newerGroup.end))) {
+        end = newerGroup.end;
+      } else {
+        canGrowNewer = false;
+      }
+    }
+    canGrowNewer &&= end < params.messages.length;
+  }
+  return params.messages.slice(start, end);
+}
+
 async function isChatMessageIdVisibleAfterHistoryFilters(params: {
   sessionId: string;
   storePath: string | undefined;
@@ -2239,6 +2306,7 @@ async function readChatHistoryPage(params: {
   maxHistoryBytes: number;
   effectiveMaxChars: number;
   offset: number | undefined;
+  messageId: string | undefined;
   ignoreCliSessionImports?: boolean;
 }): Promise<ChatHistoryPage> {
   const {
@@ -2252,8 +2320,12 @@ async function readChatHistoryPage(params: {
     maxHistoryBytes,
     effectiveMaxChars,
     offset,
+    messageId,
   } = params;
   if (!sessionId || !storePath) {
+    if (messageId) {
+      return { messages: [] };
+    }
     return {
       messages: [],
       ...(offset !== undefined ? { responseOffset: offset } : {}),
@@ -2273,78 +2345,95 @@ async function readChatHistoryPage(params: {
     : resolveClaudeCliBindingSessionId(entry);
   // Bound snapshots are terminal by contract, so offset requests return the same
   // full snapshot. Paging oversized imports needs an opaque snapshot cursor and
-  // is deferred to a follow-up issue.
-  if (offset !== undefined && !cliSessionId) {
+  // is deferred to a follow-up issue. Anchored reads fall through with them: the
+  // full-snapshot merge below still centers on messageId at the handler cap.
+  if ((offset !== undefined || messageId) && !cliSessionId) {
     const rawHistoryWindow = resolveSessionHistoryTailReadOptions(max);
-    const readPage =
-      offset === 0
-        ? await readRecentSessionMessagesWithStatsAsync(readScope, {
-            maxMessages: rawHistoryWindow.maxMessages + 1,
-            maxLines: rawHistoryWindow.maxLines + 1,
-            maxBytes: Math.max(maxHistoryBytes * 2, 1024 * 1024),
-            allowResetArchiveFallback: true,
-          })
-        : await readSessionMessagesPageWithStatsAsync(readScope, {
-            offset,
-            maxMessages: max + 1,
-            allowResetArchiveFallback: true,
-          });
-    const overreadContextMessage =
-      offset === 0
-        ? readPage.messages.length > rawHistoryWindow.maxMessages
-          ? readPage.messages[0]
-          : undefined
-        : readPage.messages.length > max
-          ? readPage.messages[0]
-          : undefined;
-    const localMessages =
-      offset === 0
-        ? dropLocalHistoryOverreadContextMessage(
-            dropPreSessionStartAnnouncePairs(
-              readPage.messages,
-              typeof entry?.sessionStartedAt === "number" ? entry.sessionStartedAt : undefined,
-            ),
-            overreadContextMessage,
-          )
-        : dropLocalHistoryOverreadContextMessage(
-            dropPreSessionStartAnnouncePairs(
-              readPage.messages,
-              typeof entry?.sessionStartedAt === "number" ? entry.sessionStartedAt : undefined,
-            ),
-            overreadContextMessage,
-          );
-    const rawPageMessages =
-      offset === 0
-        ? Math.min(
-            rawHistoryWindow.maxMessages,
-            Math.max(readPage.messages.length, readPage.totalMessages > 0 ? 1 : 0),
-          )
-        : Math.min(
-            max,
-            Math.max(readPage.messages.length, readPage.totalMessages > offset ? 1 : 0),
-          );
+    let pageOffset = offset ?? 0;
+    let hasOverreadContext = false;
+    let readPage: { messages: unknown[]; totalMessages: number };
+    if (messageId) {
+      const anchoredPage = await readSessionMessagesAroundIdWithStatsAsync(readScope, {
+        messageId,
+        maxMessages: max,
+        allowResetArchiveFallback: true,
+      });
+      if (!anchoredPage.found) {
+        return { messages: [] };
+      }
+      pageOffset = anchoredPage.offset;
+      hasOverreadContext = anchoredPage.hasOverreadContext;
+      readPage = anchoredPage;
+    } else if (pageOffset === 0) {
+      readPage = await readRecentSessionMessagesWithStatsAsync(readScope, {
+        maxMessages: rawHistoryWindow.maxMessages + 1,
+        maxLines: rawHistoryWindow.maxLines + 1,
+        maxBytes: Math.max(maxHistoryBytes * 2, 1024 * 1024),
+        allowResetArchiveFallback: true,
+      });
+    } else {
+      readPage = await readSessionMessagesPageWithStatsAsync(readScope, {
+        offset: pageOffset,
+        maxMessages: max + 1,
+        allowResetArchiveFallback: true,
+      });
+    }
+    const isTailPage = !messageId && pageOffset === 0;
+    const overreadContextMessage = isTailPage
+      ? readPage.messages.length > rawHistoryWindow.maxMessages
+        ? readPage.messages[0]
+        : undefined
+      : hasOverreadContext || readPage.messages.length > max
+        ? readPage.messages[0]
+        : undefined;
+    const localMessages = dropLocalHistoryOverreadContextMessage(
+      dropPreSessionStartAnnouncePairs(
+        readPage.messages,
+        typeof entry?.sessionStartedAt === "number" ? entry.sessionStartedAt : undefined,
+      ),
+      overreadContextMessage,
+    );
+    const rawPageMessages = isTailPage
+      ? Math.min(
+          rawHistoryWindow.maxMessages,
+          Math.max(readPage.messages.length, readPage.totalMessages > 0 ? 1 : 0),
+        )
+      : Math.min(
+          max,
+          Math.max(readPage.messages.length, readPage.totalMessages > pageOffset ? 1 : 0),
+        );
     const rawMessages = localMessages;
     const recencyFilteredMessages = dropPreSessionStartAnnouncePairs(
       rawMessages,
       typeof entry?.sessionStartedAt === "number" ? entry.sessionStartedAt : undefined,
     );
-    const projected =
-      offset === 0
-        ? projectRecentChatDisplayMessages(recencyFilteredMessages, {
-            maxChars: effectiveMaxChars,
-            maxMessages: max,
-          })
-        : projectChatDisplayMessages(recencyFilteredMessages, {
-            maxChars: effectiveMaxChars,
-          });
-    const windowed =
-      offset === 0 ? projected : capOffsetChatHistoryProjectedMessages(projected, max);
+    const projected = isTailPage
+      ? projectRecentChatDisplayMessages(recencyFilteredMessages, {
+          maxChars: effectiveMaxChars,
+          maxMessages: max,
+        })
+      : projectChatDisplayMessages(recencyFilteredMessages, {
+          maxChars: effectiveMaxChars,
+        });
+    const windowed = messageId
+      ? (capChatHistoryAroundMessage({
+          messages: projected,
+          messageId,
+          fits: (messages) => messages.length <= max,
+        }) ?? capOffsetChatHistoryProjectedMessages(projected, max))
+      : isTailPage
+        ? projected
+        : capOffsetChatHistoryProjectedMessages(projected, max);
     const normalized = augmentChatHistoryWithCanvasBlocks(windowed);
+    if (messageId) {
+      // Numeric offsets do not encode the selected historical transcript source.
+      return { messages: normalized };
+    }
     return {
       messages: normalized,
-      responseOffset: offset,
+      responseOffset: pageOffset,
       pagination: {
-        offset,
+        offset: pageOffset,
         totalMessages: readPage.totalMessages,
         rawPageMessages,
       },
@@ -2380,7 +2469,7 @@ async function readChatHistoryPage(params: {
         provider,
         localMessages: localMessagesWithBoundaryFilter,
       });
-  if (offset !== undefined && !cliHistory.imported) {
+  if ((offset !== undefined || messageId) && !cliHistory.imported) {
     return readChatHistoryPage({ ...params, ignoreCliSessionImports: true });
   }
   if (cliHistory.imported) {
@@ -2471,13 +2560,38 @@ async function handleChatHistoryRequest({
     );
     return;
   }
-  const { sessionKey, limit, offset, maxChars } = params as {
+  const {
+    sessionKey,
+    limit,
+    offset,
+    messageId,
+    sessionId: requestedSessionId,
+    maxChars,
+  } = params as {
     sessionKey: string;
     agentId?: string;
     limit?: number;
     offset?: number;
+    messageId?: string;
+    sessionId?: string;
     maxChars?: number;
   };
+  if (offset !== undefined && messageId !== undefined) {
+    respond(
+      false,
+      undefined,
+      errorShape(ErrorCodes.INVALID_REQUEST, "offset and messageId cannot be used together"),
+    );
+    return;
+  }
+  if (requestedSessionId !== undefined && messageId === undefined) {
+    respond(
+      false,
+      undefined,
+      errorShape(ErrorCodes.INVALID_REQUEST, "sessionId requires messageId"),
+    );
+    return;
+  }
   const agentIdOverride = normalizeOptionalText((params as { agentId?: string }).agentId);
   const requestedAgentId = resolveRequestedChatAgentId({
     cfg: (context as { getRuntimeConfig?: () => OpenClawConfig }).getRuntimeConfig?.(),
@@ -2497,6 +2611,32 @@ async function handleChatHistoryRequest({
   if (!selectedAgent.ok) {
     respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, selectedAgent.error));
     return;
+  }
+  const sessionAgentId = resolveSessionAgentId({
+    sessionKey,
+    config: cfg,
+    agentId: selectedAgent.agentId,
+  });
+  if (requestedSessionId) {
+    const transcriptSessionKey = resolveTranscriptSessionKeyBySessionId({
+      agentId: sessionAgentId,
+      sessionId: requestedSessionId,
+      storePath,
+    });
+    if (
+      !transcriptSessionKey ||
+      scopeLegacySessionKeyToAgent({
+        sessionKey: transcriptSessionKey,
+        agentId: sessionAgentId,
+      }) !== scopeLegacySessionKeyToAgent({ sessionKey: canonicalKey, agentId: sessionAgentId })
+    ) {
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, "sessionId does not belong to sessionKey"),
+      );
+      return;
+    }
   }
   const startupModelCatalogLoad =
     method === "chat.startup"
@@ -2522,12 +2662,9 @@ async function handleChatHistoryRequest({
   if (startupModelCatalogLoad) {
     void modelCatalogPromise.catch(() => undefined);
   }
-  const sessionId = entry?.sessionId;
-  const sessionAgentId = resolveSessionAgentId({
-    sessionKey,
-    config: cfg,
-    agentId: selectedAgent.agentId,
-  });
+  const sessionId = requestedSessionId ?? entry?.sessionId;
+  const historyEntry =
+    requestedSessionId && requestedSessionId !== entry?.sessionId ? undefined : entry;
   const resolvedSessionModel = resolveSessionModelRef(cfg, entry, sessionAgentId);
   const hardMax = 1000;
   const defaultLimit = 200;
@@ -2536,7 +2673,7 @@ async function handleChatHistoryRequest({
   const maxHistoryBytes = getMaxChatHistoryMessagesBytes();
   const effectiveMaxChars = resolveEffectiveChatHistoryMaxChars(cfg, maxChars);
   const historyPage = await readChatHistoryPage({
-    entry,
+    entry: historyEntry,
     provider: resolvedSessionModel.provider,
     sessionId,
     storePath,
@@ -2546,6 +2683,7 @@ async function handleChatHistoryRequest({
     maxHistoryBytes,
     effectiveMaxChars,
     offset,
+    messageId,
   });
   const normalized = historyPage.messages;
   const perMessageHardCap = Math.min(CHAT_HISTORY_MAX_SINGLE_MESSAGE_BYTES, maxHistoryBytes);
@@ -2558,7 +2696,13 @@ async function handleChatHistoryRequest({
     ...(selectedAgent.agentId ? { agentId: selectedAgent.agentId } : {}),
     context,
   });
-  const capped = capArrayByJsonBytes(replaced.messages, maxHistoryBytes).items;
+  const capped = messageId
+    ? (capChatHistoryAroundMessage({
+        messages: replaced.messages,
+        messageId,
+        fits: (messages) => jsonUtf8Bytes(messages) <= maxHistoryBytes,
+      }) ?? capArrayByJsonBytes(replaced.messages, maxHistoryBytes).items)
+    : capArrayByJsonBytes(replaced.messages, maxHistoryBytes).items;
   const bounded = enforceChatHistoryFinalBudget({ messages: capped, maxBytes: maxHistoryBytes });
   const historyBudgetPreserved =
     replaced.replacedCount === 0 &&
@@ -2566,17 +2710,23 @@ async function handleChatHistoryRequest({
     bounded.messages.length === capped.length &&
     bounded.messages.every((message, index) => message === capped[index]);
   const pagination = historyPage.pagination;
-  const candidateNextOffset = resolveChatHistoryNextOffset({
-    messages: bounded.messages,
-    totalMessages: pagination.totalMessages,
-    offset: pagination.offset,
-    rawPageMessages: pagination.rawPageMessages,
-    replayOldestRecord: shouldReplayOldestChatHistoryRecord({
-      projected: normalized,
-      bounded: bounded.messages,
-    }),
-  });
-  const hasMore = pagination.exhausted !== true && candidateNextOffset < pagination.totalMessages;
+  const candidateNextOffset =
+    pagination === undefined
+      ? undefined
+      : resolveChatHistoryNextOffset({
+          messages: bounded.messages,
+          totalMessages: pagination.totalMessages,
+          offset: pagination.offset,
+          rawPageMessages: pagination.rawPageMessages,
+          replayOldestRecord: shouldReplayOldestChatHistoryRecord({
+            projected: normalized,
+            bounded: bounded.messages,
+          }),
+        });
+  const hasMore =
+    pagination !== undefined && candidateNextOffset !== undefined
+      ? pagination.exhausted !== true && candidateNextOffset < pagination.totalMessages
+      : undefined;
   const nextOffset = hasMore ? candidateNextOffset : undefined;
   reportOmittedChatHistory({
     originalMessages: normalized,
@@ -2663,8 +2813,8 @@ async function handleChatHistoryRequest({
     messages: bounded.messages,
     ...(historyPage.responseOffset !== undefined ? { offset: historyPage.responseOffset } : {}),
     ...(hasMore ? { nextOffset } : {}),
-    hasMore,
-    totalMessages: pagination.totalMessages,
+    ...(hasMore !== undefined ? { hasMore } : {}),
+    ...(pagination !== undefined ? { totalMessages: pagination.totalMessages } : {}),
     ...(historyPage.completeCliImport && !hasMore && historyBudgetPreserved
       ? { completeSnapshot: true }
       : {}),
