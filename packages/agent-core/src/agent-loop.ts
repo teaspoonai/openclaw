@@ -12,6 +12,12 @@ import type { EventStream as SourceEventStream } from "../../llm-core/src/index.
 import { TranscriptNotContinuableError } from "./errors.js";
 import { resolveAgentReasoningOption } from "./reasoning.js";
 import { type AgentCoreStreamRuntimeDeps, resolveAgentCoreStreamFn } from "./runtime-deps.js";
+import {
+  appendInterruptedTurnMessage,
+  createInterruptedTurnMessage,
+  isTurnHandoffAbort,
+  normalizeCoreContextMessages,
+} from "./turn-interruption.js";
 import type {
   AgentContext,
   AgentEvent,
@@ -118,7 +124,7 @@ export function agentLoop(
       stream.end(messages);
     })
     .catch((error: unknown) => {
-      pushLoopFailure(stream, config, error, signal?.aborted === true);
+      pushLoopFailure(stream, config, error, signal);
     });
 
   return stream;
@@ -164,7 +170,7 @@ export function agentLoopContinue(
       stream.end(messages);
     })
     .catch((error: unknown) => {
-      pushLoopFailure(stream, config, error, signal?.aborted === true);
+      pushLoopFailure(stream, config, error, signal);
     });
 
   return stream;
@@ -254,13 +260,21 @@ function pushLoopFailure(
   stream: EventStream<AgentEvent, AgentMessage[]>,
   config: AgentLoopConfig,
   error: unknown,
-  aborted: boolean,
+  signal: AbortSignal | undefined,
 ): void {
+  const aborted = signal?.aborted === true;
   const failureMessage = createLoopFailureMessage(config, error, aborted);
   stream.push({ type: "message_start", message: failureMessage });
   stream.push({ type: "message_end", message: failureMessage });
   stream.push({ type: "turn_end", message: failureMessage, toolResults: [] });
-  stream.push({ type: "agent_end", messages: [failureMessage] });
+  const messages: AgentMessage[] = [failureMessage];
+  if (aborted && !isTurnHandoffAbort(signal)) {
+    const interruption = createInterruptedTurnMessage();
+    messages.push(interruption);
+    stream.push({ type: "message_start", message: interruption });
+    stream.push({ type: "message_end", message: interruption });
+  }
+  stream.push({ type: "agent_end", messages });
 }
 
 /**
@@ -301,6 +315,9 @@ async function runLoop(
     await emit({ type: "message_end", message: abortedMessage });
     await emit({ type: "turn_end", message: abortedMessage, toolResults: [] });
     turnOpen = false;
+    if (!isTurnHandoffAbort(signal)) {
+      await appendInterruptedTurnMessage(newMessages, emit);
+    }
     await emit({ type: "agent_end", messages: newMessages });
     return true;
   };
@@ -349,6 +366,9 @@ async function runLoop(
 
       if (message.stopReason === "error" || message.stopReason === "aborted") {
         await emit({ type: "turn_end", message, toolResults: [] });
+        if (message.stopReason === "aborted" && signal?.aborted && !isTurnHandoffAbort(signal)) {
+          await appendInterruptedTurnMessage(newMessages, emit);
+        }
         await emit({ type: "agent_end", messages: newMessages });
         return;
       }
@@ -459,6 +479,7 @@ async function streamAssistantResponse(
   if (config.transformContext) {
     messages = await config.transformContext(messages, signal);
   }
+  messages = normalizeCoreContextMessages(messages);
 
   // Convert to LLM-compatible messages (AgentMessage[] → Message[])
   const llmMessages = await config.convertToLlm(messages);

@@ -1601,10 +1601,12 @@ export class AgentSession {
 
   /**
    * Abort current operation and wait for agent to become idle.
+   * The reason reaches the run's AbortSignal; yield-style callers pass a
+   * turnHandoff reason so agent-core skips interrupted-turn guidance.
    */
-  async abort(): Promise<void> {
+  async abort(reason?: unknown): Promise<void> {
     this.abortRetry();
-    this.agent.abort();
+    this.agent.abort(reason);
     await this.agent.waitForIdle();
   }
 

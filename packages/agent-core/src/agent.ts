@@ -12,6 +12,7 @@ import { runAgentLoop, runAgentLoopContinue } from "./agent-loop.js";
 import { TranscriptNotContinuableError } from "./errors.js";
 import { resolveAgentReasoningOption } from "./reasoning.js";
 import { type AgentCoreStreamRuntimeDeps, resolveAgentCoreStreamFn } from "./runtime-deps.js";
+import { appendInterruptedTurnMessage, isTurnHandoffAbort } from "./turn-interruption.js";
 import type {
   AfterToolCallContext,
   AfterToolCallResult,
@@ -347,8 +348,8 @@ export class Agent {
   }
 
   /** Abort the current run, if one is active. */
-  abort(): void {
-    this.activeRun?.abortController.abort();
+  abort(reason?: unknown): void {
+    this.activeRun?.abortController.abort(reason);
   }
 
   /**
@@ -548,7 +549,11 @@ export class Agent {
     await this.processEvents({ type: "message_start", message: failureMessage });
     await this.processEvents({ type: "message_end", message: failureMessage });
     await this.processEvents({ type: "turn_end", message: failureMessage, toolResults: [] });
-    await this.processEvents({ type: "agent_end", messages: [failureMessage] });
+    const messages: AgentMessage[] = [failureMessage];
+    if (aborted && !isTurnHandoffAbort(this.signal)) {
+      await appendInterruptedTurnMessage(messages, (event) => this.processEvents(event));
+    }
+    await this.processEvents({ type: "agent_end", messages });
   }
 
   private finishRun(): void {

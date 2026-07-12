@@ -8,6 +8,7 @@ import type {
 import { runAgentLoop } from "../agent-loop.js";
 import { resolveAgentReasoningOption } from "../reasoning.js";
 import { type AgentCoreRuntimeDeps, resolveAgentCoreStreamFn } from "../runtime-deps.js";
+import { appendInterruptedTurnMessage, isTurnHandoffAbort } from "../turn-interruption.js";
 import type {
   AgentContext,
   AgentEvent,
@@ -625,8 +626,12 @@ export class CoreAgentHarness<
       { type: "turn_end", message: failureMessage, toolResults: [] },
       signal,
     );
-    await this.handleAgentEvent({ type: "agent_end", messages: [failureMessage] }, signal);
-    return [failureMessage];
+    const messages: AgentMessage[] = [failureMessage];
+    if (aborted && !isTurnHandoffAbort(signal)) {
+      await appendInterruptedTurnMessage(messages, (event) => this.handleAgentEvent(event, signal));
+    }
+    await this.handleAgentEvent({ type: "agent_end", messages }, signal);
+    return messages;
   }
 
   private async executeTurn(

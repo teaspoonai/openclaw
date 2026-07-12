@@ -109,6 +109,20 @@ export function createYieldAbortedResponse(model: {
   };
 }
 
+// sessions_yield ends the turn as a clean handoff, not an interruption.
+// turnHandoff:true tells agent-core to skip <turn_aborted> guidance
+// (packages/agent-core/src/turn-interruption.ts); code keys the runner's
+// own yield checks in attempt.ts and attempt-stream.ts.
+export const SESSIONS_YIELD_ABORT_REASON = { code: "sessions_yield", turnHandoff: true } as const;
+
+export function isSessionsYieldAbortReason(reason: unknown): boolean {
+  return (
+    typeof reason === "object" &&
+    reason !== null &&
+    (reason as { code?: unknown }).code === "sessions_yield"
+  );
+}
+
 // Queue a hidden steering message so agent runtime injects it before the next
 // LLM call once the current assistant turn finishes executing its tool calls.
 export function queueSessionsYieldInterruptMessage(activeSession: {
