@@ -85,7 +85,7 @@ ${text}
 \`\`\``;
 }
 
-export function buildToolCardSidebarContent(card: ToolCard): string {
+function buildToolCardSidebarContent(card: ToolCard): string {
   const display = resolveToolDisplay({ name: card.name, args: card.args });
   const detail = formatToolDetail(display);
   const isError = isToolCardError(card);
@@ -298,7 +298,7 @@ function buildSidebarContent(
   };
 }
 
-export function buildPreviewSidebarContent(
+function buildPreviewSidebarContent(
   preview: ToolPreview,
   rawText?: string | null,
   options?: { fullMessageRequest?: FullMessageRequest },
@@ -540,7 +540,7 @@ function tokenizeCommand(command: string): CommandToken[] {
   return tokens;
 }
 
-export function renderHighlightedCommand(command: string) {
+function renderHighlightedCommand(command: string) {
   if (command.length > COMMAND_HIGHLIGHT_MAX_CHARS) {
     return html`${command}`;
   }

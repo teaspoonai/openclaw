@@ -66,7 +66,7 @@ function decodePathSegment(value: string): string | null {
   }
 }
 
-export function parseGitHubIssueOrPullRequestLink(href: string): GitHubLinkTarget | null {
+function parseGitHubIssueOrPullRequestLink(href: string): GitHubLinkTarget | null {
   let url: URL;
   try {
     url = new URL(href, globalThis.location?.href ?? "http://localhost/");
@@ -292,7 +292,7 @@ function anchorFromEvent(event: Event): HTMLAnchorElement | null {
   return null;
 }
 
-export class GitHubLinkHovercardProvider extends HTMLElement {
+class GitHubLinkHovercardProvider extends HTMLElement {
   client: GatewayBrowserClient | null = null;
 
   private readonly cache = new Map<string, CacheEntry>();

@@ -168,7 +168,7 @@ function terminalDescription(approval: ApprovalSnapshot, origin: ResolutionOrigi
   return unreachable;
 }
 
-export class ApprovalPage extends OpenClawLightDomElement {
+class ApprovalPage extends OpenClawLightDomElement {
   @consume({ context: applicationContext, subscribe: false })
   context!: ApplicationContext<RouteId>;
 

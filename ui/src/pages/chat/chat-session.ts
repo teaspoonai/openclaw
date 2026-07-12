@@ -61,7 +61,7 @@ type ChatIdleSessionReconciliationHost = SessionScopeHost & {
   sessionsResult?: SessionsListResult | null;
 };
 
-export function buildChatSessionListOptions(
+function buildChatSessionListOptions(
   _state: ChatSessionListHost,
   options: { offset?: number; append?: boolean; search?: string | null } = {},
 ): SessionListOptions {
@@ -284,7 +284,7 @@ export function getPendingChatPickerPatch(
   return pendingChatPickerPatches.get(host.sessions)?.get(patchKey);
 }
 
-export function trackPendingChatPickerPatch(
+function trackPendingChatPickerPatch(
   host: ChatPickerPatchHost,
   sessionKey: string,
   patchPromise: Promise<boolean>,

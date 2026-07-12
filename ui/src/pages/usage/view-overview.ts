@@ -1139,7 +1139,6 @@ export {
   renderDailyChartCompact,
   renderFilterChips,
   renderInsightList,
-  renderPeakErrorList,
   renderSessionsCard,
   renderUsageInsights,
 };

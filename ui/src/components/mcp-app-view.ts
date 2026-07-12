@@ -70,7 +70,7 @@ function hostContext(element: Element | undefined, height: number): HostContext 
   };
 }
 
-export function buildMcpAppHostCapabilities(csp?: HostSandboxCsp): HostCapabilities {
+function buildMcpAppHostCapabilities(csp?: HostSandboxCsp): HostCapabilities {
   return {
     openLinks: {},
     serverResources: {},
@@ -79,7 +79,7 @@ export function buildMcpAppHostCapabilities(csp?: HostSandboxCsp): HostCapabilit
   };
 }
 
-export function resolveMcpAppSandboxUrl(
+function resolveMcpAppSandboxUrl(
   value: string,
   sandboxPort: number,
   sandboxOrigin: string | undefined,
@@ -133,7 +133,7 @@ class OpenClawAppBridge extends AppBridge {
   }
 }
 
-export class McpAppView extends LitElement {
+class McpAppView extends LitElement {
   static override styles = css`
     :host {
       display: block;

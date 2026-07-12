@@ -167,7 +167,7 @@ function isMobileNavLayout(): boolean {
   return globalThis.matchMedia?.("(max-width: 1100px)").matches ?? false;
 }
 
-export function navigationSurfaceIsHidden(params: {
+function navigationSurfaceIsHidden(params: {
   navCollapsed: boolean;
   navDrawerOpen: boolean;
   mobileNavLayout: boolean;
@@ -175,7 +175,7 @@ export function navigationSurfaceIsHidden(params: {
   return params.mobileNavLayout ? !params.navDrawerOpen : params.navCollapsed;
 }
 
-export function renderFloatingUpdateCard(params: {
+function renderFloatingUpdateCard(params: {
   navigationSurfaceHidden: boolean;
   onboarding: boolean;
   updateAvailable: ApplicationContext["overlays"]["snapshot"]["updateAvailable"];

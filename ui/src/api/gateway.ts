@@ -117,7 +117,7 @@ function shouldContinueReconnectForPairingRequired(details: unknown): boolean {
  * Connect failures that cannot recover while client and server state stay unchanged.
  * AUTH_TOKEN_MISMATCH stays out: the close handler owns its bounded cached-token retry.
  */
-export function isNonRecoverableConnectError(error: { details?: unknown } | undefined): boolean {
+function isNonRecoverableConnectError(error: { details?: unknown } | undefined): boolean {
   if (!error) {
     return false;
   }
@@ -224,7 +224,7 @@ type SelectedConnectAuth = {
 
 const CONTROL_UI_OPERATOR_ROLE = "operator";
 
-export const CONTROL_UI_OPERATOR_SCOPES = [
+const CONTROL_UI_OPERATOR_SCOPES = [
   "operator.admin",
   "operator.read",
   "operator.write",
@@ -232,7 +232,7 @@ export const CONTROL_UI_OPERATOR_SCOPES = [
   "operator.pairing",
 ] as const;
 
-export const CONTROL_UI_BOOTSTRAP_OPERATOR_SCOPES = [
+const CONTROL_UI_BOOTSTRAP_OPERATOR_SCOPES = [
   "operator.approvals",
   "operator.read",
   "operator.talk.secrets",
@@ -542,7 +542,7 @@ export function hasStoredGatewayAuth(params: {
   return storedDeviceTokenScopesAllowRead(CONTROL_UI_OPERATOR_ROLE, storedEntry.scopes);
 }
 
-export function shouldRetryWithDeviceToken(params: DeviceTokenRetryDecision): boolean {
+function shouldRetryWithDeviceToken(params: DeviceTokenRetryDecision): boolean {
   return (
     !params.deviceTokenRetryBudgetUsed &&
     !params.authDeviceToken &&

@@ -9,7 +9,7 @@ import "./tooltip.ts";
 
 const BRANCH_DISPLAY_LENGTH = 14;
 
-export function formatBuildChipText(info: ControlUiBuildInfo, nowMs: number): string | null {
+function formatBuildChipText(info: ControlUiBuildInfo, nowMs: number): string | null {
   if (!info.commit) {
     return null;
   }

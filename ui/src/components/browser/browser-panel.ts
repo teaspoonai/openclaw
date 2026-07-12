@@ -146,7 +146,7 @@ function tabLabel(tab: BrowserPanelTab): string {
   }
 }
 
-export function normalizeUrlDraft(raw: string): string | null {
+function normalizeUrlDraft(raw: string): string | null {
   const trimmed = raw.trim();
   if (!trimmed) {
     return null;
@@ -176,7 +176,7 @@ function loadImage(dataUrl: string): Promise<HTMLImageElement> {
 }
 
 /** `<openclaw-browser-panel>` — the dockable gateway browser surface. */
-export class OpenClawBrowserPanel extends OpenClawLitElement {
+class OpenClawBrowserPanel extends OpenClawLitElement {
   /** Gateway client used for browser.request RPCs; null until connected. */
   @property({ attribute: false }) client: GatewayBrowserClient | null = null;
   /** Whether the connected gateway advertises browser.request to this operator. */

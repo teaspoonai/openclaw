@@ -6,7 +6,7 @@ import { t } from "../../i18n/index.ts";
 import { formatCost, formatTimeMs, formatTokens } from "../../lib/format.ts";
 import type { ModelProviderAuthKind, ModelProviderCard } from "./data.ts";
 
-export type ModelProvidersViewProps = {
+type ModelProvidersViewProps = {
   connected: boolean;
   loading: boolean;
   refreshing: boolean;

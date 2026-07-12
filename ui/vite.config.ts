@@ -12,8 +12,8 @@ import {
   normalizeControlUiBranch,
   normalizeControlUiBuildTimestamp,
   normalizeControlUiCommit,
-  type ControlUiBuildInfo,
-} from "./src/build-info.ts";
+} from "./src/build-info-normalizers.ts";
+import type { ControlUiBuildInfo } from "./src/build-info.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..");

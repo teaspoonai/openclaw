@@ -5,8 +5,6 @@ import {
   type GatewayBrowserClient,
   type GatewayHelloOk,
 } from "../../api/gateway.ts";
-
-export { GatewayRequestError };
 import type {
   AgentsListResult,
   GatewaySessionRow,
@@ -312,7 +310,7 @@ function historyHasSameOrNewerDisplayMessage(
   });
 }
 
-export function preserveOptimisticTailMessages(
+function preserveOptimisticTailMessages(
   historyMessages: unknown[],
   previousMessages: unknown[],
 ): unknown[] {
@@ -797,7 +795,7 @@ type ClearChatHistoryState = ChatState &
     sessions: Pick<SessionCapability, "reset">;
   };
 
-export type ClearChatHistoryResult = "completed" | "failed" | "uncertain";
+type ClearChatHistoryResult = "completed" | "failed" | "uncertain";
 
 function hasAbortableChatSessionRun(state: ClearChatHistoryState): boolean {
   if (state.chatRunId) {

@@ -26,7 +26,7 @@ export type RealtimeTalkOptions = {
   vadThreshold: string;
 };
 
-export type ChatRealtimeTalkOptionsProps = {
+type ChatRealtimeTalkOptionsProps = {
   realtimeTalkOptions?: RealtimeTalkOptions;
   realtimeTalkInputDevices?: RealtimeTalkInputDevice[];
   realtimeTalkInputDeviceId?: string;

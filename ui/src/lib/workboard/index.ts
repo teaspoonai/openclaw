@@ -4,7 +4,7 @@ import type { GatewaySessionRow } from "../../api/types.ts";
 import { requestSessionCreate } from "../sessions/index.ts";
 // Control UI controller manages workboard gateway state.
 
-export const WORKBOARD_STATUSES = [
+const WORKBOARD_STATUSES = [
   "triage",
   "backlog",
   "todo",
@@ -46,23 +46,17 @@ const WORKBOARD_EVENT_KINDS = [
   "unarchived",
   "stale",
 ] as const;
-export const WORKBOARD_ATTEMPT_STATUSES = [
+const WORKBOARD_ATTEMPT_STATUSES = [
   "running",
   "succeeded",
   "failed",
   "blocked",
   "stopped",
 ] as const;
-export const WORKBOARD_LINK_TYPES = [
-  "parent",
-  "child",
-  "blocks",
-  "blocked_by",
-  "relates_to",
-] as const;
-export const WORKBOARD_PROOF_STATUSES = ["passed", "failed", "skipped", "unknown"] as const;
-export const WORKBOARD_TEMPLATE_IDS = ["bugfix", "docs", "release", "pr_review", "plugin"] as const;
-export const WORKBOARD_DIAGNOSTIC_SEVERITIES = ["warning", "error", "critical"] as const;
+const WORKBOARD_LINK_TYPES = ["parent", "child", "blocks", "blocked_by", "relates_to"] as const;
+const WORKBOARD_PROOF_STATUSES = ["passed", "failed", "skipped", "unknown"] as const;
+const WORKBOARD_TEMPLATE_IDS = ["bugfix", "docs", "release", "pr_review", "plugin"] as const;
+const WORKBOARD_DIAGNOSTIC_SEVERITIES = ["warning", "error", "critical"] as const;
 
 const WORKBOARD_ENGINE_MODELS = {
   codex: "openai/gpt-5.6-sol",
@@ -73,15 +67,15 @@ export type WorkboardStatus = (typeof WORKBOARD_STATUSES)[number];
 export type WorkboardPriority = (typeof WORKBOARD_PRIORITIES)[number];
 export type WorkboardExecutionEngine = (typeof WORKBOARD_EXECUTION_ENGINES)[number];
 export type WorkboardExecutionMode = (typeof WORKBOARD_EXECUTION_MODES)[number];
-export type WorkboardExecutionStatus = (typeof WORKBOARD_EXECUTION_STATUSES)[number];
-export type WorkboardEventKind = (typeof WORKBOARD_EVENT_KINDS)[number];
-export type WorkboardAttemptStatus = (typeof WORKBOARD_ATTEMPT_STATUSES)[number];
-export type WorkboardLinkType = (typeof WORKBOARD_LINK_TYPES)[number];
-export type WorkboardProofStatus = (typeof WORKBOARD_PROOF_STATUSES)[number];
+type WorkboardExecutionStatus = (typeof WORKBOARD_EXECUTION_STATUSES)[number];
+type WorkboardEventKind = (typeof WORKBOARD_EVENT_KINDS)[number];
+type WorkboardAttemptStatus = (typeof WORKBOARD_ATTEMPT_STATUSES)[number];
+type WorkboardLinkType = (typeof WORKBOARD_LINK_TYPES)[number];
+type WorkboardProofStatus = (typeof WORKBOARD_PROOF_STATUSES)[number];
 export type WorkboardTemplateId = (typeof WORKBOARD_TEMPLATE_IDS)[number];
-export type WorkboardDiagnosticSeverity = (typeof WORKBOARD_DIAGNOSTIC_SEVERITIES)[number];
+type WorkboardDiagnosticSeverity = (typeof WORKBOARD_DIAGNOSTIC_SEVERITIES)[number];
 
-export type WorkboardExecution = {
+type WorkboardExecution = {
   id: string;
   kind: "agent-session";
   engine: WorkboardExecutionEngine;
@@ -104,7 +98,7 @@ export type WorkboardEvent = {
   runId?: string;
 };
 
-export type WorkboardRunAttempt = {
+type WorkboardRunAttempt = {
   id: string;
   status: WorkboardAttemptStatus;
   startedAt: number;
@@ -117,14 +111,14 @@ export type WorkboardRunAttempt = {
   error?: string;
 };
 
-export type WorkboardComment = {
+type WorkboardComment = {
   id: string;
   body: string;
   createdAt: number;
   updatedAt?: number;
 };
 
-export type WorkboardLink = {
+type WorkboardLink = {
   id: string;
   type: WorkboardLinkType;
   createdAt: number;
@@ -133,7 +127,7 @@ export type WorkboardLink = {
   url?: string;
 };
 
-export type WorkboardProof = {
+type WorkboardProof = {
   id: string;
   status: WorkboardProofStatus;
   createdAt: number;
@@ -143,7 +137,7 @@ export type WorkboardProof = {
   note?: string;
 };
 
-export type WorkboardStaleState = {
+type WorkboardStaleState = {
   detectedAt: number;
   lastSessionUpdatedAt?: number;
   reason: string;
@@ -157,7 +151,7 @@ type WorkboardClaim = {
   expiresAt?: number;
 };
 
-export type WorkboardArtifact = {
+type WorkboardArtifact = {
   id: string;
   createdAt: number;
   label?: string;
@@ -166,7 +160,7 @@ export type WorkboardArtifact = {
   mimeType?: string;
 };
 
-export type WorkboardAttachment = {
+type WorkboardAttachment = {
   id: string;
   cardId: string;
   createdAt: number;
@@ -176,7 +170,7 @@ export type WorkboardAttachment = {
   note?: string;
 };
 
-export type WorkboardWorkerLog = {
+type WorkboardWorkerLog = {
   id: string;
   createdAt: number;
   level: "info" | "warning" | "error";
@@ -185,13 +179,13 @@ export type WorkboardWorkerLog = {
   runId?: string;
 };
 
-export type WorkboardWorkerProtocol = {
+type WorkboardWorkerProtocol = {
   state: "idle" | "running" | "completed" | "blocked" | "violated";
   updatedAt: number;
   detail?: string;
 };
 
-export type WorkboardDiagnostic = {
+type WorkboardDiagnostic = {
   kind: string;
   severity: WorkboardDiagnosticSeverity;
   title: string;
@@ -201,7 +195,7 @@ export type WorkboardDiagnostic = {
   count: number;
 };
 
-export type WorkboardNotification = {
+type WorkboardNotification = {
   id: string;
   kind: string;
   createdAt: number;
@@ -210,13 +204,13 @@ export type WorkboardNotification = {
   runId?: string;
 };
 
-export type WorkboardWorkspace = {
+type WorkboardWorkspace = {
   kind: "scratch" | "dir" | "worktree";
   path?: string;
   branch?: string;
 };
 
-export type WorkboardAutomation = {
+type WorkboardAutomation = {
   tenant?: string;
   boardId?: string;
   createdByCardId?: string;
@@ -232,7 +226,7 @@ export type WorkboardAutomation = {
   lastDispatchAt?: number;
 };
 
-export type WorkboardMetadata = {
+type WorkboardMetadata = {
   attempts?: WorkboardRunAttempt[];
   comments?: WorkboardComment[];
   links?: WorkboardLink[];
@@ -3393,7 +3387,7 @@ export async function syncWorkboardLifecycle(params: {
   }
 }
 
-export async function createWorkboardCard(params: {
+async function createWorkboardCard(params: {
   host: WorkboardHost;
   client: GatewayBrowserClient | null;
   requestUpdate?: () => void;

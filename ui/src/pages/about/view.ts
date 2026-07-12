@@ -6,7 +6,7 @@ import { i18n, t } from "../../i18n/index.ts";
 
 export type AboutCommitCopyState = "idle" | "copying" | "copied" | "error";
 
-export type AboutProps = {
+type AboutProps = {
   buildInfo: ControlUiBuildInfo;
   gatewayVersion: string | null;
   copyState: AboutCommitCopyState;
@@ -15,7 +15,7 @@ export type AboutProps = {
 
 const SHORT_COMMIT_LENGTH = 12;
 
-export function formatControlUiBuildDate(
+function formatControlUiBuildDate(
   value: string | null,
   locales?: Intl.LocalesArgument,
 ): string | null {
