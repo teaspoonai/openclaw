@@ -43,13 +43,13 @@ export type ClawHubPackageCompatibility = {
   pluginSdkVersion?: string;
   minGatewayVersion?: string;
 };
-export type ClawHubPackageHostTarget = {
+type ClawHubPackageHostTarget = {
   os?: string | null;
   arch?: string | null;
   libc?: string | null;
   key?: string | null;
 };
-export type ClawHubPackageEnvironmentSummary = {
+type ClawHubPackageEnvironmentSummary = {
   requiresLocalDesktop?: boolean;
   requiresBrowser?: boolean;
   requiresAudioDevice?: boolean;
@@ -73,14 +73,14 @@ export type ClawHubPackageArtifactSummary = {
   tarballUrl?: string | null;
   legacyDownloadUrl?: string | null;
 };
-export type ClawHubArtifactScanState =
+type ClawHubArtifactScanState =
   | "pending"
   | "clean"
   | "suspicious"
   | "malicious"
   | "not-run"
   | (string & {});
-export type ClawHubArtifactModerationState = "approved" | "quarantined" | "revoked" | (string & {});
+type ClawHubArtifactModerationState = "approved" | "quarantined" | "revoked" | (string & {});
 export type ClawHubPackageSecurityTrust = {
   scanStatus?: ClawHubArtifactScanState | null;
   moderationState?: ClawHubArtifactModerationState | null;
@@ -163,7 +163,7 @@ export type ClawHubPackageClawPackSummary = {
   environment?: ClawHubPackageEnvironmentSummary | null;
   runtimeBundles?: unknown[];
 };
-export type ClawHubPackageListItem = {
+type ClawHubPackageListItem = {
   name: string;
   displayName: string;
   family: ClawHubPackageFamily;
@@ -342,7 +342,7 @@ export type ClawHubSkillInstallResolutionResponse =
       status: number;
     };
 
-export type ClawHubSkillVerificationDecision = "pass" | "fail" | (string & {});
+type ClawHubSkillVerificationDecision = "pass" | "fail" | (string & {});
 
 export type ClawHubSkillVerificationResponse = {
   schema: "clawhub.skill.verify.v1";
@@ -365,7 +365,7 @@ export type ClawHubSkillVerificationResponse = {
   signature: unknown;
 };
 
-export type ClawHubSkillSecurityVerdictRequestItem = {
+type ClawHubSkillSecurityVerdictRequestItem = {
   slug: string;
   ownerHandle?: string;
   version: string;
@@ -393,7 +393,7 @@ export type ClawHubSkillSecurityVerdictItem = {
   };
 };
 
-export type ClawHubSkillSecurityVerdictsResponse = {
+type ClawHubSkillSecurityVerdictsResponse = {
   schema: "clawhub.skill.security-verdicts.v1";
   items: ClawHubSkillSecurityVerdictItem[];
 };
@@ -515,7 +515,7 @@ function resolveClawHubConfigPaths(): string[] {
   return [xdgPath];
 }
 
-export async function resolveClawHubAuthToken(): Promise<string | undefined> {
+async function resolveClawHubAuthToken(): Promise<string | undefined> {
   const envToken =
     normalizeOptionalString(process.env.OPENCLAW_CLAWHUB_TOKEN) ||
     normalizeOptionalString(process.env.CLAWHUB_TOKEN) ||
@@ -1716,7 +1716,7 @@ export function satisfiesGatewayMinimum(
 // validated against the local provider catalog by the caller before any
 // install/auth action, so a malformed or hostile record cannot execute code.
 
-export type ClawHubPromotionModel = {
+type ClawHubPromotionModel = {
   modelRef: string;
   alias?: string;
   suggestedDefault?: boolean;
@@ -1745,7 +1745,7 @@ export type ClawHubPromotion = {
 // clients still window-filter on startsAt/endsAt).
 export type ClawHubPromotionsFeedEntry = Omit<ClawHubPromotion, "status" | "active">;
 
-export type ClawHubPromotionsFeed = {
+type ClawHubPromotionsFeed = {
   schemaVersion: number;
   id: string;
   generatedAt: string;
@@ -1851,7 +1851,7 @@ function parseClawHubPromotionCore(
   return promotion;
 }
 
-export function parseClawHubPromotion(value: unknown): ClawHubPromotion {
+function parseClawHubPromotion(value: unknown): ClawHubPromotion {
   const context = "promotion";
   if (!isJsonObject(value)) {
     throw new Error(`Malformed ClawHub ${context}: expected an object.`);
@@ -1951,7 +1951,7 @@ export function parseClawHubPromotionsFeed(value: unknown): ClawHubPromotionsFee
   return { schemaVersion, id, generatedAt, sequence, expiresAt, entries };
 }
 
-export type ClawHubPromotionsFeedFetchResult =
+type ClawHubPromotionsFeedFetchResult =
   | { status: "not-modified" }
   | { status: "ok"; feed: ClawHubPromotionsFeed; payload: string; etag?: string };
 
