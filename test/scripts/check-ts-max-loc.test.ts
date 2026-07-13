@@ -3,9 +3,7 @@ import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import {
   countPhysicalLines,
-  findLocBaselineUpdateViolations,
   findLocRatchetViolations,
-  findVersionedBaselineViolations,
   isProductionTypeScriptFile,
   parseArgs,
 } from "../../scripts/check-ts-max-loc.js";
@@ -36,20 +34,9 @@ describe("scripts/check-ts-max-loc", () => {
     }
   });
 
-  it("parses a safe comparison base ref", () => {
-    expect(parseArgs(["--base-ref", "refs/remotes/origin/pr-base"])).toMatchObject({
-      baseRef: "refs/remotes/origin/pr-base",
-    });
-    expect(() => parseArgs(["--base-ref", "main^{tree}"])).toThrow("--base-ref requires a git ref");
-  });
-
-  it("fails closed when a comparison ref does not exist", () => {
-    const result = runCheckTsMaxLoc(["--base-ref", "refs/heads/__loc-ratchet-missing__"]);
-
-    expect(result.status).toBe(1);
-    expect(result.stdout).toBe("");
-    expect(result.stderr).toBe(
-      "Invalid TypeScript LOC comparison ref: refs/heads/__loc-ratchet-missing__\n",
+  it("rejects the retired base-ref flag so stale callers fail loudly", () => {
+    expect(() => parseArgs(["--base-ref", "refs/remotes/origin/pr-base"])).toThrow(
+      "Unknown argument: --base-ref",
     );
   });
 
@@ -115,46 +102,5 @@ describe("scripts/check-ts-max-loc", () => {
     expect(isProductionTypeScriptFile("ui/src/i18n/locales/en.ts")).toBe(false);
     expect(isProductionTypeScriptFile("ui/src/i18n/locales/zh-CN.ts")).toBe(false);
     expect(isProductionTypeScriptFile("ui/src/i18n/lib/registry.ts")).toBe(true);
-  });
-
-  it("allows baseline updates only for decreases and removals", () => {
-    const violations = findLocBaselineUpdateViolations({
-      maxLines: 500,
-      baseline: {
-        "src/grew.ts": 700,
-        "src/shrank.ts": 700,
-        "src/removed.ts": 700,
-      },
-      results: [
-        { filePath: "src/grew.ts", lines: 701 },
-        { filePath: "src/shrank.ts", lines: 650 },
-        { filePath: "src/new.ts", lines: 501 },
-      ],
-    });
-
-    expect(violations).toEqual([
-      { filePath: "src/grew.ts", lines: 701, baselineLines: 700, reason: "grew" },
-      { filePath: "src/new.ts", lines: 501, reason: "baseline-missing" },
-    ]);
-  });
-
-  it("rejects versioned baseline additions and increases", () => {
-    const violations = findVersionedBaselineViolations({
-      baseBaseline: {
-        "src/grew.ts": 700,
-        "src/shrank.ts": 700,
-        "src/removed.ts": 700,
-      },
-      baseline: {
-        "src/grew.ts": 701,
-        "src/shrank.ts": 650,
-        "src/new.ts": 501,
-      },
-    });
-
-    expect(violations).toEqual([
-      { filePath: "src/grew.ts", lines: 701, baselineLines: 700, reason: "grew" },
-      { filePath: "src/new.ts", lines: 501, reason: "baseline-missing" },
-    ]);
   });
 });

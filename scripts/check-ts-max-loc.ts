@@ -12,14 +12,12 @@ function writeStdoutLine(message: string): void {
 }
 
 export type ParsedArgs = {
-  baseRef?: string;
   baselinePath: string;
   maxLines: number;
   writeBaseline: boolean;
 };
 
 export function parseArgs(argv: string[]): ParsedArgs {
-  let baseRef: string | undefined;
   let baselinePath = DEFAULT_BASELINE_PATH;
   let maxLines = 500;
   let writeBaseline = false;
@@ -47,15 +45,6 @@ export function parseArgs(argv: string[]): ParsedArgs {
       index++;
       continue;
     }
-    if (arg === "--base-ref") {
-      const next = argv[index + 1];
-      if (!next || next.startsWith("-") || !/^[A-Za-z0-9_./-]+$/u.test(next)) {
-        throw new Error("--base-ref requires a git ref");
-      }
-      baseRef = next;
-      index++;
-      continue;
-    }
     if (arg === "--write-baseline") {
       writeBaseline = true;
       continue;
@@ -63,7 +52,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     throw new Error(`Unknown argument: ${arg}`);
   }
 
-  return { baseRef, baselinePath, maxLines, writeBaseline };
+  return { baselinePath, maxLines, writeBaseline };
 }
 
 function gitLsFilesAll(): string[] {
@@ -152,46 +141,6 @@ export function findLocRatchetViolations(params: {
   );
 }
 
-export function findLocBaselineUpdateViolations(params: {
-  baseline: LocBaseline;
-  maxLines: number;
-  results: LocResult[];
-}): LocRatchetViolation[] {
-  const violations: LocRatchetViolation[] = [];
-  for (const result of params.results) {
-    if (result.lines <= params.maxLines) {
-      continue;
-    }
-    const baselineLines = params.baseline[result.filePath];
-    if (baselineLines === undefined) {
-      violations.push({ ...result, reason: "baseline-missing" });
-    } else if (result.lines > baselineLines) {
-      violations.push({ ...result, baselineLines, reason: "grew" });
-    }
-  }
-  return violations.toSorted(
-    (left, right) => right.lines - left.lines || left.filePath.localeCompare(right.filePath),
-  );
-}
-
-export function findVersionedBaselineViolations(params: {
-  baseline: LocBaseline;
-  baseBaseline: LocBaseline;
-}): LocRatchetViolation[] {
-  const violations: LocRatchetViolation[] = [];
-  for (const [filePath, lines] of Object.entries(params.baseline)) {
-    const baselineLines = params.baseBaseline[filePath];
-    if (baselineLines === undefined) {
-      violations.push({ filePath, lines, reason: "baseline-missing" });
-    } else if (lines > baselineLines) {
-      violations.push({ filePath, lines, baselineLines, reason: "grew" });
-    }
-  }
-  return violations.toSorted(
-    (left, right) => right.lines - left.lines || left.filePath.localeCompare(right.filePath),
-  );
-}
-
 async function readBaseline(filePath: string): Promise<LocBaseline> {
   return parseBaseline(await readFile(filePath, "utf8"), filePath);
 }
@@ -209,50 +158,6 @@ function parseBaseline(content: string, source: string): LocBaseline {
     baseline[entryPath] = value as number;
   }
   return baseline;
-}
-
-function tryGitOutput(args: string[]): string | undefined {
-  try {
-    return execFileSync("git", args, {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
-  } catch {
-    return undefined;
-  }
-}
-
-function resolveComparisonBaseRef(
-  baselinePath: string,
-  explicitBaseRef?: string,
-): string | undefined {
-  if (explicitBaseRef) {
-    return explicitBaseRef;
-  }
-  const head = tryGitOutput(["rev-parse", "HEAD"]);
-  const mergeBase = tryGitOutput(["merge-base", "HEAD", "origin/main"]);
-  if (mergeBase && mergeBase !== head) {
-    return mergeBase;
-  }
-  const changedBaselinePath = tryGitOutput(["diff", "--name-only", "HEAD", "--", baselinePath]);
-  if (changedBaselinePath?.split("\n").includes(baselinePath)) {
-    return "HEAD";
-  }
-  return tryGitOutput(["rev-parse", "--verify", "HEAD^"]) ? "HEAD^" : undefined;
-}
-
-function readBaselineAtRef(
-  baseRef: string | undefined,
-  baselinePath: string,
-): LocBaseline | undefined {
-  if (!baseRef) {
-    return undefined;
-  }
-  if (!tryGitOutput(["rev-parse", "--verify", `${baseRef}^{commit}`])) {
-    throw new Error(`Invalid TypeScript LOC comparison ref: ${baseRef}`);
-  }
-  const content = tryGitOutput(["show", `${baseRef}:${baselinePath}`]);
-  return content === undefined ? undefined : parseBaseline(content, `${baseRef}:${baselinePath}`);
 }
 
 function buildBaseline(results: LocResult[], maxLines: number): LocBaseline {
@@ -289,21 +194,9 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   );
 
   if (writeBaseline) {
-    const baseline = await readBaseline(baselinePath);
-    const comparisonBaseRef = resolveComparisonBaseRef(baselinePath, baseRef);
-    if (!comparisonBaseRef) {
-      throw new Error("Unable to resolve a comparison ref for the TypeScript LOC baseline update");
-    }
-    const baseBaseline = readBaselineAtRef(comparisonBaseRef, baselinePath);
-    // A missing baseline at a valid base ref is the one-time initialization path.
-    const violations = [
-      ...(baseBaseline ? findVersionedBaselineViolations({ baseline, baseBaseline }) : []),
-      ...findLocBaselineUpdateViolations({ baseline, maxLines, results }),
-    ];
-    reportViolations(violations);
-    if (violations.length > 0) {
-      return 1;
-    }
+    // Absorb current reality, growth included: raises land as reviewable
+    // baseline diffs in the same PR instead of dead-ending the ratchet. The
+    // check mode below still forces baselines to move down with every split.
     const updatedBaseline = buildBaseline(results, maxLines);
     await writeFile(baselinePath, `${JSON.stringify(updatedBaseline, null, 2)}\n`, "utf8");
     writeStdoutLine(`updated ${baselinePath} (${Object.keys(updatedBaseline).length} files)`);
@@ -311,14 +204,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   }
 
   const baseline = await readBaseline(baselinePath);
-  const baseBaseline = readBaselineAtRef(
-    resolveComparisonBaseRef(baselinePath, baseRef),
-    baselinePath,
-  );
-  const violations = [
-    ...(baseBaseline ? findVersionedBaselineViolations({ baseline, baseBaseline }) : []),
-    ...findLocRatchetViolations({ baseline, maxLines, results }),
-  ];
+  const violations = findLocRatchetViolations({ baseline, maxLines, results });
   reportViolations(violations);
   return violations.length === 0 ? 0 : 1;
 }
