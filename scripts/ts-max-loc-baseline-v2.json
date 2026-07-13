@@ -1038,7 +1038,7 @@
   "src/node-host/invoke.ts": 1210,
   "src/plugin-sdk/api-baseline.ts": 792,
   "src/plugin-sdk/approval-native-helpers.ts": 975,
-  "src/plugin-sdk/approval-reaction-runtime.ts": 642,
+  "src/plugin-sdk/approval-reaction-runtime.ts": 628,
   "src/plugin-sdk/channel-config-helpers.ts": 678,
   "src/plugin-sdk/channel-entry-contract.ts": 627,
   "src/plugin-sdk/channel-ingress.ts": 685,
