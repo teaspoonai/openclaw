@@ -9,6 +9,7 @@ import type {
   ApplicationGateway,
   ApplicationGatewaySnapshot,
 } from "./context.ts";
+import { navigationSurfaceIsHidden, renderFloatingUpdateCard } from "./navigation-surface.ts";
 
 type AppLifecycleState = {
   loginToken: string;
@@ -422,5 +423,53 @@ describe("OpenClaw shell keyboard shortcuts", () => {
 
     expect(event.defaultPrevented).toBe(false);
     expect(navigate).not.toHaveBeenCalled();
+  });
+});
+
+describe("OpenClaw shell update affordance", () => {
+  it("renders a floating card only while desktop navigation is collapsed", () => {
+    const container = document.createElement("div");
+    const shared = {
+      onboarding: false,
+      updateAvailable: {
+        currentVersion: "2026.7.1",
+        latestVersion: "2026.7.2",
+        channel: "stable" as const,
+      },
+      updateRunning: false,
+      onUpdate: vi.fn(),
+    };
+    const collapsed = navigationSurfaceIsHidden({
+      navCollapsed: true,
+      navDrawerOpen: false,
+      mobileNavLayout: false,
+    });
+    render(renderFloatingUpdateCard({ ...shared, navigationSurfaceHidden: collapsed }), container);
+    expect(container.querySelector("openclaw-sidebar-update-card")).not.toBeNull();
+
+    const visible = navigationSurfaceIsHidden({
+      navCollapsed: false,
+      navDrawerOpen: false,
+      mobileNavLayout: false,
+    });
+    render(renderFloatingUpdateCard({ ...shared, navigationSurfaceHidden: visible }), container);
+    expect(container.querySelector("openclaw-sidebar-update-card")).toBeNull();
+  });
+
+  it("treats a closed mobile drawer as hidden navigation", () => {
+    expect(
+      navigationSurfaceIsHidden({
+        navCollapsed: false,
+        navDrawerOpen: false,
+        mobileNavLayout: true,
+      }),
+    ).toBe(true);
+    expect(
+      navigationSurfaceIsHidden({
+        navCollapsed: false,
+        navDrawerOpen: true,
+        mobileNavLayout: true,
+      }),
+    ).toBe(false);
   });
 });

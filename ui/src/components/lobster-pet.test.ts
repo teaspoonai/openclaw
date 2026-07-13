@@ -306,6 +306,69 @@ describe("lobster pet element", () => {
     expect(spriteClasses(element)).toContain("lobster-pet--act-startle");
   });
 
+  it("schedules acts while perched", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-09T12:00:00"));
+    const element = createPet(42);
+    await arrive(element);
+
+    const act = await advanceUntilAct(element, 20_000);
+
+    expect(act).not.toBeNull();
+    expect(spriteClasses(element)).toContain(`lobster-pet--act-${act}`);
+  });
+
+  it("reacts to busy, idle, and offline mode changes", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-09T12:00:00"));
+    const element = createPet(42);
+    await arrive(element);
+
+    element.mode = "busy";
+    await element.updateComplete;
+    expect(spriteClasses(element)).toContain("lobster-pet--act-startle");
+    expect(spriteClasses(element)).toContain("lobster-pet--busy");
+
+    element.runOutcome = "ok";
+    element.mode = "idle";
+    await element.updateComplete;
+    expect(spriteClasses(element)).toContain("lobster-pet--act-cheer");
+
+    const offline = createPet(7, "offline");
+    await offline.updateComplete;
+    expect(spritePresent(offline)).toBe(true);
+    expect(spriteClasses(offline)).toContain("lobster-pet--offline");
+  });
+
+  it("renders deterministic molt and twin load variants", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-09T12:00:00"));
+    const molting = createPet(2);
+    await arrive(molting);
+    expect(await advanceUntilAct(molting, 30_000)).toBe("molt");
+    expect(
+      await advanceUntil(molting, () => molting.querySelector(".lobster-pet--shell") !== null, 30_000),
+    ).toBe(true);
+
+    const twins = createPet(21);
+    await arrive(twins);
+    expect(twins.querySelectorAll(".lobster-pet:not(.lobster-pet--shell)")).toHaveLength(2);
+    expect(twins.querySelector(".lobster-pet--twin")?.getAttribute("title")).toMatch(/ Jr\.$/);
+  });
+
+  it("records arrivals in the lobsterdex", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-09T12:00:00"));
+    vi.stubGlobal("localStorage", window.localStorage);
+    const element = createPet(42);
+
+    await arrive(element);
+
+    const look = createLobsterPetLook(42, new Date("2026-07-09T12:00:00"));
+    expect(getLobsterdex().has(look.palette.id)).toBe(true);
+    expect(getLobsterdexEntries().get(look.palette.id)?.name).toBeTruthy();
+  });
+
   it("right-click shoos it away for the rest of the load", async () => {
     vi.useFakeTimers();
     const element = createPet(42);
@@ -758,5 +821,17 @@ describe("lobster pet logo stand-in", () => {
     await element.updateComplete;
     expect(phases.at(-1)?.phase).toBe("out");
     expect(spritePresent(element)).toBe(false);
+  });
+
+  it("keeps unplanned loads on the ledge without logo events", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-09T12:00:00"));
+    const element = createPet(42);
+    const phases = trackLogoPhases(element);
+
+    await arrive(element);
+
+    expect(spritePresent(element)).toBe(true);
+    expect(phases).toEqual([]);
   });
 });

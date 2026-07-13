@@ -10,7 +10,7 @@ import { createStorageMock } from "../../test-helpers/storage.ts";
 import {
   getChatAttachmentDataUrl,
   getChatAttachmentPreviewUrl,
-  registerChatAttachmentPayload,
+  registerChatAttachmentPayload as registerStoredChatAttachmentPayload,
   releaseChatAttachmentPayloads,
 } from "./attachment-payload-store.ts";
 import { refreshChatAvatar } from "./chat-avatar.ts";
@@ -53,6 +53,20 @@ type TestChatHost = Omit<ChatHost, "settings"> & {
 const executeSlashCommandMock = vi.hoisted(() => vi.fn());
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+const registeredAttachmentPayloads = new Map<string, ReturnType<typeof registerStoredChatAttachmentPayload>>();
+
+function registerChatAttachmentPayload(
+  params: Parameters<typeof registerStoredChatAttachmentPayload>[0],
+) {
+  const attachment = registerStoredChatAttachmentPayload(params);
+  registeredAttachmentPayloads.set(attachment.id, attachment);
+  return attachment;
+}
+
+afterEach(() => {
+  releaseChatAttachmentPayloads([...registeredAttachmentPayloads.values()]);
+  registeredAttachmentPayloads.clear();
+});
 
 vi.mock("./chat-command-executor.ts", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./chat-command-executor.ts")>();
@@ -86,6 +100,7 @@ let flushChatQueueForEvent: typeof import("./chat-send.ts").flushChatQueueForEve
 let retryReconnectableQueuedChatSends: typeof import("./chat-send.ts").retryReconnectableQueuedChatSends;
 let retryQueuedChatMessage: typeof import("./chat-send.ts").retryQueuedChatMessage;
 let recordChatSendServerTiming: typeof import("./chat-send-timing.ts").recordChatSendServerTiming;
+let refreshPageChat: typeof import("./chat-state.ts").refreshPageChat;
 
 async function loadChatHelpers(): Promise<void> {
   ({
@@ -98,6 +113,7 @@ async function loadChatHelpers(): Promise<void> {
   ({ recordChatSendServerTiming } = await import("./chat-send-timing.ts"));
   const chatState = await import("./chat-state.ts");
   handlePageGatewayEvent = chatState.handlePageGatewayEvent;
+  refreshPageChat = chatState.refreshPageChat;
   ({ handleAbortChat, hasAbortableSessionRun } = await import("./run-lifecycle.ts"));
   ({
     admitQueuedMessageForSession,
@@ -375,6 +391,96 @@ async function raceWithMacrotask(promise: Promise<unknown>): Promise<"resolved" 
     }),
   ]);
 }
+
+describe("refreshPageChat", () => {
+  beforeAll(async () => {
+    await loadChatHelpers();
+  });
+
+  beforeEach(() => {
+    vi.stubGlobal("sessionStorage", createStorageMock());
+    vi.stubGlobal("requestIdleCallback", vi.fn());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("dispatches history work without waiting for slow RPCs", async () => {
+    const request = vi.fn(() => pendingPromise());
+    const requestUpdate = vi.fn();
+    const host = makeHost({
+      client: { request } as unknown as ChatHost["client"],
+      sessionKey: "main",
+      requestUpdate,
+    });
+
+    const refresh = refreshPageChat(host as unknown as ChatPageHost);
+
+    expect(await raceWithMacrotask(refresh)).toBe("resolved");
+    expect(host.chatLoading).toBe(true);
+    expect(request).toHaveBeenCalledWith("chat.history", { sessionKey: "main", limit: 100 });
+    expect(request).not.toHaveBeenCalledWith("sessions.list", expect.anything());
+    expect(requestUpdate).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [
+      "selected global agent",
+      { sessionKey: "global", assistantAgentId: "work", agentsList: { defaultId: "main" } },
+      { sessionKey: "global", agentId: "work", limit: 100 },
+    ],
+    [
+      "agent main alias",
+      { sessionKey: "agent:work:main", agentsList: { defaultId: "main", mainKey: "main" } },
+      { sessionKey: "agent:work:main", agentId: "work", limit: 100 },
+    ],
+    [
+      "unknown session",
+      { sessionKey: "unknown", assistantAgentId: "work", agentsList: { defaultId: "main" } },
+      { sessionKey: "unknown", limit: 100 },
+    ],
+  ])("scopes history for %s", async (_name, overrides, expected) => {
+    const request = vi.fn(() => pendingPromise());
+    const host = makeHost({
+      client: { request } as unknown as ChatHost["client"],
+      ...overrides,
+    });
+
+    expect(await raceWithMacrotask(refreshPageChat(host as unknown as ChatPageHost))).toBe(
+      "resolved",
+    );
+    expect(request).toHaveBeenCalledWith("chat.history", expected);
+    expect(request).not.toHaveBeenCalledWith("sessions.list", expect.anything());
+  });
+
+  it("can await history without waiting for secondary refresh work", async () => {
+    const history = createDeferred<unknown>();
+    const requestUpdate = vi.fn();
+    const request = vi.fn((method: string) =>
+      method === "chat.history" ? history.promise : pendingPromise(),
+    );
+    const host = makeHost({
+      client: { request } as unknown as ChatHost["client"],
+      sessionKey: "main",
+      requestUpdate,
+    });
+    const refresh = refreshPageChat(host as unknown as ChatPageHost, {
+      awaitHistory: true,
+      scheduleScroll: false,
+    });
+    expect(await raceWithMacrotask(refresh)).toBe("pending");
+
+    history.resolve({
+      messages: [{ role: "assistant", content: [{ type: "text", text: "ready" }] }],
+    });
+    await expect(refresh).resolves.toBeUndefined();
+    expect(host.chatMessages).toEqual([
+      { role: "assistant", content: [{ type: "text", text: "ready" }] },
+    ]);
+    expect(requestUpdate).toHaveBeenCalled();
+  });
+});
 
 describe("refreshChatAvatar", () => {
   beforeAll(async () => {

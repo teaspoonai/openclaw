@@ -1,6 +1,7 @@
 import { expectDefined } from "@openclaw/normalization-core";
 import { describe, expect, it, vi } from "vitest";
 import type { GatewayBrowserClient, GatewayEventListener } from "../../api/gateway.ts";
+import type { WorkspaceDocument } from "./types.ts";
 import {
   clearActiveDrag,
   getWorkspaceState,
@@ -60,6 +61,14 @@ const sampleDoc = {
   prefs: { tabOrder: ["archive", "main"] },
 };
 
+function sampleWorkspace(overrides: Partial<WorkspaceDocument> = {}): WorkspaceDocument {
+  return {
+    ...structuredClone(sampleDoc),
+    widgetsRegistry: {},
+    ...overrides,
+  };
+}
+
 describe("loadWorkspace", () => {
   it("fetches and stores the workspace, seeding the active slug", async () => {
     const host = {};
@@ -87,6 +96,147 @@ describe("loadWorkspace", () => {
     await loadWorkspace(state, client);
     expect(state.error).toBe("boom");
     expect(state.loaded).toBe(false);
+  });
+});
+
+describe("optimistic workspace mutations", () => {
+  it("uses the gateway tab/id wire contract for every widget mutation", async () => {
+    const state = getWorkspaceState({});
+    state.workspace = sampleWorkspace();
+    const request = vi.fn(async () => ({}));
+    const client = mockClient({ request: request as never });
+
+    await moveWidget(state, client, {
+      slug: "main",
+      widgetId: "w1",
+      grid: { x: 8, y: 0, w: 4, h: 2 },
+    });
+    expect(request).toHaveBeenLastCalledWith("workspaces.widget.move", {
+      tab: "main",
+      id: "w1",
+      grid: { x: 8, y: 0, w: 4, h: 2 },
+    });
+
+    await updateWidgetTitle(state, client, { slug: "main", widgetId: "w1", title: "Renamed" });
+    expect(request).toHaveBeenLastCalledWith("workspaces.widget.update", {
+      tab: "main",
+      id: "w1",
+      patch: { title: "Renamed" },
+    });
+
+    await hideWidget(state, client, { slug: "main", widgetId: "w1" });
+    expect(request).toHaveBeenLastCalledWith("workspaces.widget.update", {
+      tab: "main",
+      id: "w1",
+      patch: { hidden: true },
+    });
+
+    state.workspace = sampleWorkspace();
+    await removeWidgetFromTab(state, client, { slug: "main", widgetId: "w1" });
+    expect(request).toHaveBeenLastCalledWith("workspaces.widget.remove", {
+      tab: "main",
+      id: "w1",
+    });
+
+    state.workspace = sampleWorkspace();
+    await moveWidgetToTab(state, client, {
+      fromSlug: "main",
+      toSlug: "archive",
+      widgetId: "w1",
+    });
+    expect(request).toHaveBeenLastCalledWith("workspaces.widget.move", {
+      tab: "main",
+      id: "w1",
+      toTab: "archive",
+    });
+  });
+
+  it("rolls back a rejected mutation and surfaces its error", async () => {
+    const state = getWorkspaceState({});
+    state.workspace = sampleWorkspace();
+    const client = mockClient({
+      request: vi.fn(async () => {
+        throw new Error("rejected");
+      }) as never,
+    });
+
+    await moveWidget(state, client, {
+      slug: "main",
+      widgetId: "w1",
+      grid: { x: 8, y: 0, w: 4, h: 2 },
+    });
+
+    expect(state.workspace?.tabs[0]?.widgets[0]?.grid).toEqual({ x: 0, y: 0, w: 4, h: 2 });
+    expect(state.actionError).toBe("rejected");
+    expect(state.pendingWidgetIds.has("w1")).toBe(false);
+  });
+
+  it("serializes overlapping writes so both failures fully revert", async () => {
+    const state = getWorkspaceState({});
+    state.workspace = sampleWorkspace();
+    const rejectors: Array<(error: Error) => void> = [];
+    const request = vi.fn(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectors.push(reject);
+        }),
+    );
+    const client = mockClient({ request: request as never });
+
+    const first = moveWidget(state, client, {
+      slug: "main",
+      widgetId: "w1",
+      grid: { x: 8, y: 0, w: 4, h: 2 },
+    });
+    await vi.waitFor(() => expect(rejectors).toHaveLength(1));
+    const second = updateWidgetTitle(state, client, {
+      slug: "main",
+      widgetId: "w1",
+      title: "Rejected title",
+    });
+    expect(request).toHaveBeenCalledOnce();
+
+    rejectors[0]?.(new Error("first rejected"));
+    await vi.waitFor(() => expect(rejectors).toHaveLength(2));
+    rejectors[1]?.(new Error("second rejected"));
+    await Promise.all([first, second]);
+
+    expect(state.workspace?.tabs[0]?.widgets[0]).toMatchObject({
+      title: "Revenue",
+      grid: { x: 0, y: 0, w: 4, h: 2 },
+    });
+    expect(state.pendingWidgetIds.has("w1")).toBe(false);
+  });
+
+  it("does not overwrite a fresher reload when an older mutation rejects", async () => {
+    const state = getWorkspaceState({});
+    state.workspace = sampleWorkspace();
+    let rejectMutation!: (error: Error) => void;
+    const client = mockClient({
+      request: vi.fn(
+        () =>
+          new Promise((_resolve, reject) => {
+            rejectMutation = reject;
+          }),
+      ) as never,
+    });
+
+    const mutation = moveWidget(state, client, {
+      slug: "main",
+      widgetId: "w1",
+      grid: { x: 8, y: 0, w: 4, h: 2 },
+    });
+    await vi.waitFor(() => expect(typeof rejectMutation).toBe("function"));
+
+    const fresher = sampleWorkspace({ workspaceVersion: 4 });
+    expectDefined(fresher.tabs[0], "fresher tab").widgets[0]!.title = "Revenue (v4)";
+    state.workspace = fresher;
+    rejectMutation(new Error("rejected"));
+    await mutation;
+
+    expect(state.workspace).toBe(fresher);
+    expect(state.workspace?.workspaceVersion).toBe(4);
+    expect(state.workspace?.tabs[0]?.widgets[0]?.title).toBe("Revenue (v4)");
   });
 });
 

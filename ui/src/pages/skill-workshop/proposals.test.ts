@@ -7,6 +7,7 @@ import {
   loadSkillWorkshopProposals,
   requestSkillWorkshopRevision,
   runSkillWorkshopLifecycleAction,
+  selectSkillWorkshopProposal,
   type SkillWorkshopContext,
   type SkillWorkshopState,
 } from "./proposals.ts";
@@ -163,6 +164,22 @@ describe("Skill Workshop proposal RPCs", () => {
     });
   });
 
+  it("inspects a selected proposal with the agent from the current session", async () => {
+    const { state, context, request } = createFixture(
+      { skillWorkshopProposals: [proposal({ body: "" })] },
+      { sessionKey: "agent:ops-team:main" },
+    );
+    request.mockResolvedValue(inspectResult());
+
+    await selectSkillWorkshopProposal(state, context, "proposal-1");
+
+    expect(request).toHaveBeenCalledWith("skills.proposals.inspect", {
+      agentId: "ops-team",
+      proposalId: "proposal-1",
+    });
+    expect(state.skillWorkshopSelectedKey).toBe("proposal-1");
+  });
+
   it.each([
     ["apply", "skills.proposals.apply", "applied"],
     ["reject", "skills.proposals.reject", "rejected"],
@@ -269,6 +286,26 @@ describe("Skill Workshop proposal RPCs", () => {
 
     expect(state.skillWorkshopAgentId).toBe("ops");
     expect(request).toHaveBeenCalledWith("skills.proposals.list", { agentId: "ops" });
+  });
+
+  it("discards selected proposal detail that resolves after the agent scope changes", async () => {
+    const detail = createDeferred<ReturnType<typeof inspectResult>>();
+    const { state, context, request } = createFixture({
+      skillWorkshopAgentId: "research",
+      skillWorkshopProposals: [proposal({ body: "" })],
+    });
+    request.mockReturnValueOnce(detail.promise);
+
+    const loading = selectSkillWorkshopProposal(state, context, "proposal-1");
+    state.skillWorkshopAgentId = "ops";
+    state.skillWorkshopProposals = [proposal({ body: "Ops proposal." })];
+    state.skillWorkshopInspectingKey = "proposal-1";
+    detail.resolve(inspectResult());
+    await loading;
+
+    expect(state.skillWorkshopProposals[0]?.body).toBe("Ops proposal.");
+    expect(state.skillWorkshopInspectingKey).toBe("proposal-1");
+    expect(state.skillWorkshopSelectedKey).toBeNull();
   });
 
   it("preserves the loaded proposal agent for originless revisions", async () => {

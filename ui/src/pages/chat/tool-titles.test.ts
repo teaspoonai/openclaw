@@ -15,6 +15,61 @@ describe("getToolCallTitle", () => {
 });
 
 describe("title fetch batching", () => {
+  it("requests only eligible shell and argument-heavy tool calls", async () => {
+    vi.useFakeTimers();
+    const request = vi.fn(async (_method: string, params: unknown) => {
+      const items = (params as { items: Array<{ id: string }> }).items;
+      return { titles: Object.fromEntries(items.map((item) => [item.id, "Titled"])) };
+    });
+    configureToolTitleFetcher({
+      client: { request } as unknown as GatewayBrowserClient,
+      sessionKey: "main",
+      onTitlesChanged: null,
+    });
+
+    getToolCallTitle("bash", { command: "short" });
+    getToolCallTitle("bash", { command: "git log --oneline -5" });
+    getToolCallTitle("demo__show", { value: "short" });
+    getToolCallTitle("demo__show", { value: "x".repeat(150) });
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    const items = (request.mock.calls[0]?.[1] as { items: unknown[] }).items;
+    expect(items).toHaveLength(2);
+  });
+
+  it("deduplicates equal tool name and arguments into one request key", async () => {
+    vi.useFakeTimers();
+    const request = vi.fn(async () => ({ titles: {} }));
+    configureToolTitleFetcher({
+      client: { request } as unknown as GatewayBrowserClient,
+      sessionKey: "main",
+      onTitlesChanged: null,
+    });
+    const args = { command: "pnpm test ui/src/pages/chat --reporter verbose" };
+    getToolCallTitle("bash", args);
+    getToolCallTitle("bash", { ...args });
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    expect((request.mock.calls[0]?.[1] as { items: unknown[] }).items).toHaveLength(1);
+  });
+
+  it("returns the stored title after the eligible request resolves", async () => {
+    vi.useFakeTimers();
+    const request = vi.fn(async (_method: string, params: unknown) => {
+      const [item] = (params as { items: Array<{ id: string }> }).items;
+      return { titles: item ? { [item.id]: "Build the Control UI" } : {} };
+    });
+    configureToolTitleFetcher({
+      client: { request } as unknown as GatewayBrowserClient,
+      sessionKey: "main",
+      onTitlesChanged: null,
+    });
+    const args = { command: "pnpm run build --filter ui --mode production" };
+    expect(getToolCallTitle("bash", args)).toBeUndefined();
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(getToolCallTitle("bash", args)).toBe("Build the Control UI");
+  });
+
   it("notifies every pane that contributed rows to a title batch", async () => {
     vi.useFakeTimers();
     const client = {

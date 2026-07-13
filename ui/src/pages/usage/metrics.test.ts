@@ -1,6 +1,12 @@
 // Control UI tests cover usage metrics behavior.
+import { render } from "lit";
 import { describe, expect, it, vi, afterEach } from "vitest";
-import { buildPeakErrorHours, formatTokens, sessionTouchesSelectedHours } from "./metrics.ts";
+import {
+  buildPeakErrorHours,
+  formatTokens,
+  renderUsageMosaic,
+  sessionTouchesSelectedHours,
+} from "./metrics.ts";
 import type { UsageSessionEntry } from "./types.ts";
 
 /**
@@ -301,6 +307,20 @@ describe("usage mosaic token buckets", () => {
         })),
       },
     }) as unknown as UsageSessionEntry;
+
+  it("renders precise quarter-hour buckets in the correct UTC hour", () => {
+    const session = makeSessionWithTokenBuckets([
+      { date: "2026-02-01", quarterIndex: 40, totalTokens: 10_000 },
+    ]);
+    const container = document.createElement("div");
+    render(renderUsageMosaic([session], "utc", [], vi.fn()), container);
+
+    const cells = container.querySelectorAll<HTMLElement>(".usage-hour-cell");
+    expect(cells).toHaveLength(24);
+    expect(cells[10]?.title).toContain("10.0K");
+    expect(cells[11]?.title).toContain("0");
+    expect(container.querySelector(".usage-mosaic-total")?.textContent).toContain("10.0K");
+  });
 
   it("filters selected hours by precise token buckets before falling back to session span", () => {
     const session = makeSessionWithTokenBuckets([

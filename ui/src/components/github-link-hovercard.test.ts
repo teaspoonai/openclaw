@@ -3,9 +3,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GatewayBrowserClient } from "../api/gateway.ts";
 import { i18n } from "../i18n/index.ts";
-import "./github-link-hovercard.ts";
+import { GitHubLinkHovercardProvider } from "./github-link-hovercard.ts";
 
-const GITHUB_LINK_HOVERCARD_ELEMENT_NAME = "openclaw-github-link-hovercard-provider";
+const GITHUB_LINK_HOVERCARD_ELEMENT_NAME = `test-openclaw-github-link-hovercard-provider-${crypto.randomUUID()}`;
+
+customElements.define(
+  GITHUB_LINK_HOVERCARD_ELEMENT_NAME,
+  class extends GitHubLinkHovercardProvider {},
+);
 
 type GitHubLinkHovercardProviderElement = HTMLElement & {
   client: GatewayBrowserClient | null;
@@ -148,6 +153,22 @@ describe("openclaw-github-link-hovercard-provider", () => {
     expect(document.querySelector(".github-link-hovercard")?.textContent).toContain(
       "GitHub preview unavailable",
     );
+  });
+
+  it.each([
+    "http://github.com/openclaw/openclaw/issues/99815",
+    "https://user:password@github.com/openclaw/openclaw/issues/99815",
+    "https://example.com/openclaw/openclaw/issues/99815",
+    "javascript:alert(1)",
+  ])("does not preview an untrusted item URL: %s", async (href) => {
+    const request = vi.fn();
+    const { anchor, provider } = createLink(href);
+    provider.client = { request } as unknown as GatewayBrowserClient;
+
+    await hover(anchor);
+
+    expect(request).not.toHaveBeenCalled();
+    expect(document.querySelector(".github-link-hovercard")).toBeNull();
   });
 
   it("preserves an existing description when hover ends before opening", async () => {

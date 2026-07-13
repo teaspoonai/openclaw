@@ -2,11 +2,14 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_SIDEBAR_PINNED_ROUTES,
+  SETTINGS_NAVIGATION_GROUPS,
   SIDEBAR_NAV_ROUTES,
   isSettingsNavigationRoute,
   normalizeSidebarPinnedRoutes,
   sidebarMoreRoutes,
 } from "./app-navigation.ts";
+
+const settingsRoutes = SETTINGS_NAVIGATION_GROUPS.flatMap((group) => group.routes);
 
 describe("sidebar pinned routes", () => {
   it("keeps operational destinations visible by default", () => {
@@ -15,6 +18,27 @@ describe("sidebar pinned routes", () => {
 
   it("drops the retired overview route from persisted pins", () => {
     expect(normalizeSidebarPinnedRoutes(["overview", "usage"])).toEqual(["usage"]);
+  });
+
+  it("keeps settings-only routes out of customizable pins", () => {
+    expect(SIDEBAR_NAV_ROUTES).not.toContain("worktrees");
+    expect(SIDEBAR_NAV_ROUTES).not.toContain("activity");
+    expect(SIDEBAR_NAV_ROUTES).not.toContain("channels");
+    expect(SIDEBAR_NAV_ROUTES).not.toContain("config");
+    expect(settingsRoutes).toEqual(
+      expect.arrayContaining(["worktrees", "activity", "channels", "config"]),
+    );
+    expect(settingsRoutes.every((routeId) => isSettingsNavigationRoute(routeId))).toBe(true);
+    expect(normalizeSidebarPinnedRoutes(["activity", "worktrees", "usage"])).toEqual(["usage"]);
+  });
+
+  it("keeps the plugin manager in customizable workspace routes", () => {
+    expect(normalizeSidebarPinnedRoutes(["plugins", "usage", "plugins"])).toEqual([
+      "plugins",
+      "usage",
+    ]);
+    expect(sidebarMoreRoutes(["usage"])).toContain("plugins");
+    expect(settingsRoutes).not.toContain("plugins");
   });
 
   it("normalizes persisted pinned routes, dropping unknown and duplicate entries", () => {

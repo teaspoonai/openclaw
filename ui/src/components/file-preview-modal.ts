@@ -12,7 +12,7 @@ type FilePreviewModalFile = {
   contents: string;
 };
 
-class OpenClawFilePreviewModal extends OpenClawLitElement {
+export class OpenClawFilePreviewModal extends OpenClawLitElement {
   @property({ attribute: false }) files: FilePreviewModalFile[] = [];
   @property() activePath = "";
   @property() query = "";
@@ -752,10 +752,6 @@ function fileKind(path: string): string {
     sh: "Shell",
   };
   return map[ext] ?? (ext ? ext.toUpperCase() : "File");
-}
-
-if (!customElements.get("openclaw-file-preview-modal")) {
-  customElements.define("openclaw-file-preview-modal", OpenClawFilePreviewModal);
 }
 
 const CODE_EXTENSIONS = new Set([

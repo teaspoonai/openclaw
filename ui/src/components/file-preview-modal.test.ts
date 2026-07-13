@@ -2,7 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { i18n } from "../i18n/index.ts";
-import "./file-preview-modal.ts";
+import { OpenClawFilePreviewModal } from "./file-preview-modal.ts";
 
 type FilePreviewModalElement = HTMLElement & {
   files: typeof files;
@@ -14,7 +14,12 @@ type FilePreviewModalElement = HTMLElement & {
 
 let container: HTMLDivElement;
 
-const FILE_PREVIEW_MODAL_ELEMENT_NAME = "openclaw-file-preview-modal";
+const FILE_PREVIEW_MODAL_ELEMENT_NAME = `test-openclaw-file-preview-modal-${crypto.randomUUID()}`;
+
+customElements.define(
+  FILE_PREVIEW_MODAL_ELEMENT_NAME,
+  class extends OpenClawFilePreviewModal {},
+);
 
 const files = [
   {

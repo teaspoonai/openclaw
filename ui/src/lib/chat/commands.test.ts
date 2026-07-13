@@ -2,12 +2,17 @@
 import { expectDefined } from "@openclaw/normalization-core";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  buildFallbackSlashCommands,
   buildSlashCommandsFromEntries,
   getRemoteCommandEntries,
   parseSlashCommand,
   replaceSlashCommands,
   SLASH_COMMANDS,
 } from "./commands.ts";
+
+afterEach(() => {
+  replaceSlashCommands(buildFallbackSlashCommands());
+});
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

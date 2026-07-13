@@ -8,8 +8,11 @@ import {
   OPENAI_GPT5_MINI_MODEL,
 } from "../../test-helpers/chat-model.ts";
 import {
+  buildCatalogDisplayLookup,
+  buildChatModelOptionFromLookup,
   buildQualifiedChatModelValue,
   createChatModelOverride,
+  formatCatalogChatModelDisplayFromLookup,
   normalizeChatModelOverrideValue,
   resolvePreferredServerChatModelValue,
 } from "./model-ref.ts";
@@ -21,6 +24,58 @@ const catalog = createModelCatalog(OPENAI_GPT5_MINI_MODEL, {
 });
 
 describe("chat-model-ref helpers", () => {
+  it("builds provider-qualified options with catalog labels", () => {
+    const lookup = buildCatalogDisplayLookup(catalog);
+    expect(
+      buildChatModelOptionFromLookup(expectDefined(catalog[0], "first model fixture"), lookup),
+    ).toEqual({
+      value: "openai/gpt-5-mini",
+      label: "GPT-5 Mini",
+    });
+  });
+
+  it("preserves provider-native nested ids and prefers aliases", () => {
+    const nested = {
+      id: "moonshotai/kimi-k2.5",
+      alias: "Kimi K2.5 (NVIDIA)",
+      name: "Kimi K2.5",
+      provider: "nvidia",
+    };
+    const lookup = buildCatalogDisplayLookup([nested]);
+
+    expect(buildChatModelOptionFromLookup(nested, lookup)).toEqual({
+      value: "nvidia/moonshotai/kimi-k2.5",
+      label: "Kimi K2.5 (NVIDIA)",
+    });
+    expect(
+      formatCatalogChatModelDisplayFromLookup("nvidia/moonshotai/kimi-k2.5", lookup),
+    ).toBe("Kimi K2.5 (NVIDIA)");
+  });
+
+  it("disambiguates duplicate names by provider and model id", () => {
+    const duplicateProviders = createModelCatalog(
+      { id: "claude-sonnet", name: "Claude Sonnet", provider: "anthropic" },
+      { id: "claude-sonnet", name: "Claude Sonnet", provider: "openrouter" },
+    );
+    const duplicateModels = createModelCatalog(
+      { id: "claude-sonnet", name: "Claude Sonnet", provider: "anthropic" },
+      { id: "claude-sonnet-thinking", name: "Claude Sonnet", provider: "anthropic" },
+    );
+
+    expect(
+      buildChatModelOptionFromLookup(
+        expectDefined(duplicateProviders[0], "first duplicate-provider fixture"),
+        buildCatalogDisplayLookup(duplicateProviders),
+      ).label,
+    ).toBe("Claude Sonnet · anthropic");
+    expect(
+      formatCatalogChatModelDisplayFromLookup(
+        "anthropic/claude-sonnet-thinking",
+        buildCatalogDisplayLookup(duplicateModels),
+      ),
+    ).toBe("Claude Sonnet · claude-sonnet-thinking · anthropic");
+  });
+
   it("normalizes raw overrides when the catalog match is unique", () => {
     expect(normalizeChatModelOverrideValue(createChatModelOverride("gpt-5-mini"), catalog)).toBe(
       "openai/gpt-5-mini",

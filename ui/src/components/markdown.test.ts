@@ -60,6 +60,23 @@ describe("toSanitizedMarkdownHtml", () => {
     expect(html).not.toContain("turn2view0");
   });
 
+  it("normalizes Unicode and CR line breaks before rendering", () => {
+    const unicodeInput =
+      "## Unicode separator cache sentinel\u2028\u2028- alpha\u2029- beta\r- gamma\r\n- delta";
+    const normalizedInput =
+      "## Unicode separator cache sentinel\n\n- alpha\n- beta\n- gamma\n- delta";
+    const unicodeHtml = toSanitizedMarkdownHtml(unicodeInput);
+    expect(unicodeHtml).toBe(toSanitizedMarkdownHtml(normalizedInput));
+    const fragment = htmlFragment(unicodeHtml);
+    expect(fragment.querySelector("h2")?.textContent).toBe("Unicode separator cache sentinel");
+    expect(Array.from(fragment.querySelectorAll("li"), (item) => item.textContent)).toEqual([
+      "alpha",
+      "beta",
+      "gamma",
+      "delta",
+    ]);
+  });
+
   // ── Additional tests for markdown-it migration ──
   describe("www autolinks", () => {
     it("links www.example.com", () => {
@@ -792,6 +809,16 @@ describe("toStreamingMarkdownHtml", () => {
 
     expect(fragment.querySelector("p")).toBeNull();
     expect(code?.textContent).toBe(blockArt);
+  });
+
+  it("truncates oversized streaming raw block art", () => {
+    const line = "  ▀▀▀▀  ";
+    const blockArt = Array.from({ length: 20_000 }, () => line).join("\n");
+    const html = toStreamingMarkdownHtml(blockArt);
+    const code = htmlFragment(html).querySelector("pre code.markdown-block-art");
+    expect(code?.textContent).toContain("… truncated");
+    expect(code?.textContent).toContain("showing first 140000");
+    expect(code?.textContent?.length).toBeLessThan(blockArt.length);
   });
 
   it("renders completed block prefixes as markdown and keeps the open tail plain", () => {

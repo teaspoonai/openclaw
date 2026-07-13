@@ -230,6 +230,37 @@ describe("GoogleLiveRealtimeTalkTransport", () => {
     vi.unstubAllGlobals();
   });
 
+  it("connects only to the allowlisted endpoint with the ephemeral token", async () => {
+    const transport = new GoogleLiveRealtimeTalkTransport(
+      createSession(
+        "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained?ignored=1",
+      ),
+      { callbacks: {}, client: createClient(), sessionKey: "main" },
+    );
+
+    await transport.start();
+
+    expect(latestWebSocket().url).toBe(
+      "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained?access_token=auth_tokens%2Fbrowser-session",
+    );
+    transport.stop();
+  });
+
+  it.each([
+    "ws://generativelanguage.googleapis.com/ws/google.ai",
+    "wss://attacker.test/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained",
+    "wss://generativelanguage.googleapis.com/evil",
+  ])("rejects attacker-controlled WebSocket URL %s", async (websocketUrl) => {
+    const transport = new GoogleLiveRealtimeTalkTransport(createSession(websocketUrl), {
+      callbacks: {},
+      client: createClient(),
+      sessionKey: "main",
+    });
+
+    await expect(transport.start()).rejects.toThrow(/wss:\/\/|Untrusted Google Live WebSocket/u);
+    expect(wsInstances).toHaveLength(0);
+  });
+
   it("captures from the selected microphone with an exact constraint", async () => {
     const transport = createTransport({}, createClient(), "usb-mic");
 

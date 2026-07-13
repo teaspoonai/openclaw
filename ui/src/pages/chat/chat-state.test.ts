@@ -1,6 +1,10 @@
 import type { ReactiveController, ReactiveControllerHost } from "lit";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { SLASH_COMMANDS } from "../../lib/chat/commands.ts";
+import {
+  buildFallbackSlashCommands,
+  replaceSlashCommands,
+  SLASH_COMMANDS,
+} from "../../lib/chat/commands.ts";
 import { createStorageMock } from "../../test-helpers/storage.ts";
 import { applyRemoteSlashCommandsResult } from "./chat-commands.ts";
 import {
@@ -36,6 +40,12 @@ vi.mock("../../app/assistant-identity.ts", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../app/assistant-identity.ts")>()),
   loadLocalAssistantIdentity: () => ({ avatar: "data:image/png;base64,bG9jYWw=" }),
 }));
+
+afterEach(() => {
+  replaceSlashCommands(buildFallbackSlashCommands());
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 describe("ChatStateController render lifecycle", () => {
   it("requests a render before selecting the commit promise", async () => {

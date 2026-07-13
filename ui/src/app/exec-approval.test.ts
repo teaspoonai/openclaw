@@ -1,6 +1,7 @@
 // Control UI tests cover exec approval behavior.
 import { describe, expect, it, vi } from "vitest";
 import {
+  enqueueExecApprovalPrompt,
   isStaleApprovalResolutionError,
   parseExecApprovalRequested,
   parsePluginApprovalRequested,
@@ -264,6 +265,36 @@ describe("clearResolvedExecApprovalPrompt", () => {
 });
 
 describe("refreshPendingApprovalQueue", () => {
+  it("keeps approvals received while a refresh is in flight", async () => {
+    let resolveExecList: (value: unknown[]) => void = () => {};
+    const execApprovalList = new Promise<unknown[]>((resolve) => {
+      resolveExecList = resolve;
+    });
+    const request = vi.fn<RequestFn>(async (method) => {
+      if (method === "exec.approval.list") {
+        return execApprovalList;
+      }
+      if (method === "plugin.approval.list") {
+        return [];
+      }
+      return {};
+    });
+    const state = createPromptState(request, []);
+
+    const refreshPromise = refreshPendingApprovalQueue(state);
+    enqueueExecApprovalPrompt(
+      state,
+      createExecApproval({ id: "approval-arrived-during-refresh", createdAtMs: 2000 }),
+    );
+    resolveExecList([]);
+    await refreshPromise;
+
+    expect(state.execApprovalQueue.map((entry) => entry.id)).toEqual([
+      "approval-arrived-during-refresh",
+    ]);
+    clearResolvedExecApprovalPrompt(state, "approval-arrived-during-refresh");
+  });
+
   it("does not requeue approvals resolved while a refresh is in flight", async () => {
     let resolveExecList: (value: unknown[]) => void = () => {};
     const execApprovalList = new Promise<unknown[]>((resolve) => {
@@ -284,6 +315,37 @@ describe("refreshPendingApprovalQueue", () => {
     const refreshPromise = refreshPendingApprovalQueue(state);
     clearResolvedExecApprovalPrompt(state, "approval-resolving");
     resolveExecList([resolvingApproval]);
+    await refreshPromise;
+
+    expect(state.execApprovalQueue).toEqual([]);
+  });
+
+  it("does not requeue new approvals resolved before refresh completes", async () => {
+    let resolveExecList: (value: unknown[]) => void = () => {};
+    let resolvePluginList: (value: unknown[]) => void = () => {};
+    const execApprovalList = new Promise<unknown[]>((resolve) => {
+      resolveExecList = resolve;
+    });
+    const pluginApprovalList = new Promise<unknown[]>((resolve) => {
+      resolvePluginList = resolve;
+    });
+    const request = vi.fn<RequestFn>(async (method) => {
+      if (method === "exec.approval.list") {
+        return execApprovalList;
+      }
+      if (method === "plugin.approval.list") {
+        return pluginApprovalList;
+      }
+      return {};
+    });
+    const state = createPromptState(request, []);
+    const transientApproval = createExecApproval({ id: "approval-transient" });
+
+    const refreshPromise = refreshPendingApprovalQueue(state);
+    enqueueExecApprovalPrompt(state, transientApproval);
+    resolveExecList([transientApproval]);
+    clearResolvedExecApprovalPrompt(state, "approval-transient");
+    resolvePluginList([]);
     await refreshPromise;
 
     expect(state.execApprovalQueue).toEqual([]);

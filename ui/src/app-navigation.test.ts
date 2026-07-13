@@ -15,6 +15,7 @@ import {
   routeIdFromPath,
   type RouteId,
 } from "./app-routes.ts";
+import { inferBasePathFromPathname, normalizeBasePath } from "./app-route-paths.ts";
 import { pluginTabKey, pluginTabRefFromSearch, pluginTabSearch } from "./pages/plugin/route.ts";
 
 /**
@@ -194,6 +195,17 @@ describe("pathForRoute", () => {
   });
 });
 
+describe("route path normalization", () => {
+  it("normalizes base paths and trailing route slashes", () => {
+    expect(normalizeBasePath("")).toBe("");
+    expect(normalizeBasePath("/")).toBe("");
+    expect(normalizeBasePath("ui")).toBe("/ui");
+    expect(normalizeBasePath("/apps/openclaw/")).toBe("/apps/openclaw");
+    expect(routeIdFromPath("/chat/")).toBe("chat");
+    expect(routeIdFromPath("/ui/chat/", "/ui/")).toBe("chat");
+  });
+});
+
 describe("routeIdFromPath", () => {
   it("returns tab for valid path", () => {
     expect(routeIdFromPath("/chat")).toBe("chat");
@@ -267,6 +279,21 @@ describe("compiled settings routes", () => {
   );
 });
 
+describe("inferBasePathFromPathname", () => {
+  it("handles direct routes, nested mounts, mount roots, and index.html", () => {
+    expect(inferBasePathFromPathname("/")).toBe("");
+    expect(inferBasePathFromPathname("/chat")).toBe("");
+    expect(inferBasePathFromPathname("/settings/connection")).toBe("");
+    expect(inferBasePathFromPathname("/ui/chat")).toBe("/ui");
+    expect(inferBasePathFromPathname("/apps/openclaw/sessions")).toBe("/apps/openclaw");
+    expect(inferBasePathFromPathname("/__openclaw__/")).toBe("/__openclaw__");
+    expect(inferBasePathFromPathname("/apps/openclaw/")).toBe("/apps/openclaw");
+    expect(inferBasePathFromPathname("/typo")).toBe("");
+    expect(inferBasePathFromPathname("/index.html")).toBe("");
+    expect(inferBasePathFromPathname("/ui/index.html")).toBe("/ui");
+  });
+});
+
 describe("plugin tabs route", () => {
   it("round-trips the shared /plugin route", () => {
     expect(pathForRoute("plugin", "")).toBe("/plugin");
@@ -303,5 +330,16 @@ describe("SIDEBAR_NAV_ROUTES", () => {
     expect(isPluginsHubRoute("skills")).toBe(true);
     expect(isPluginsHubRoute("skill-workshop")).toBe(true);
     expect(isPluginsHubRoute("sessions")).toBe(false);
+  });
+
+  it("keeps settings groups unique and the general group first", () => {
+    const settingsRoutes = SETTINGS_NAVIGATION_GROUPS.flatMap((group) => group.routes);
+    expect(new Set(settingsRoutes).size).toBe(settingsRoutes.length);
+    const [firstGroup] = SETTINGS_NAVIGATION_GROUPS;
+    expect(firstGroup?.labelKey).toBeNull();
+    expect(firstGroup?.routes).toContain("config");
+    for (const group of SETTINGS_NAVIGATION_GROUPS.slice(1)) {
+      expect(group.labelKey).toBeTruthy();
+    }
   });
 });

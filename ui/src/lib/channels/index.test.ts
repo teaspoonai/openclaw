@@ -157,3 +157,61 @@ describe("channels controller WhatsApp wait", () => {
     expect(request).toHaveBeenCalledOnce();
   });
 });
+
+describe("channel refresh sequencing", () => {
+  it("keeps a stale slow probe from replacing a newer runtime snapshot", async () => {
+    const slowProbe = createDeferred<ChannelsStatusSnapshot | null>();
+    const fastRuntime = createDeferred<ChannelsStatusSnapshot | null>();
+    const request = vi.fn(async (_method: string, params?: unknown) =>
+      (params as { probe?: boolean } | undefined)?.probe
+        ? slowProbe.promise
+        : fastRuntime.promise,
+    );
+    const channels = createChannelCapability({
+      snapshot: { client: { request }, connected: true },
+      subscribe: () => () => undefined,
+    } as never);
+
+    const probeLoad = channels.refresh(true, { softTimeoutMs: 1 });
+    await probeLoad;
+    const runtimeLoad = channels.refresh(false);
+    expect(request).toHaveBeenCalledTimes(2);
+
+    fastRuntime.resolve(createChannelsSnapshot("fresh"));
+    await runtimeLoad;
+    slowProbe.resolve(createChannelsSnapshot("stale"));
+    await Promise.resolve();
+
+    expect(channels.state.channelsSnapshot?.channelLabels.test).toBe("fresh");
+    expect(channels.state.channelsLoading).toBe(false);
+    channels.dispose();
+  });
+
+  it("returns after a soft timeout while retaining the in-flight loading state", async () => {
+    vi.useFakeTimers();
+    try {
+      const pending = createDeferred<ChannelsStatusSnapshot | null>();
+      const request = vi.fn(() => pending.promise);
+      const channels = createChannelCapability({
+        snapshot: { client: { request }, connected: true },
+        subscribe: () => () => undefined,
+      } as never);
+      const previous = createChannelsSnapshot("previous");
+      channels.state.channelsSnapshot = previous;
+      channels.state.channelsLastSuccess = 10;
+
+      const refresh = channels.refresh(true, { softTimeoutMs: 100 });
+      await vi.advanceTimersByTimeAsync(100);
+      await refresh;
+
+      expect(channels.state.channelsLoading).toBe(true);
+      expect(channels.state.channelsSnapshot).toBe(previous);
+      pending.resolve(createChannelsSnapshot("next"));
+      await vi.waitFor(() => expect(channels.state.channelsLoading).toBe(false));
+      expect(channels.state.channelsSnapshot?.channelLabels.test).toBe("next");
+      channels.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

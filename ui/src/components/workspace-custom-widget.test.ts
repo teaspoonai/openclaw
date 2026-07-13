@@ -1,4 +1,4 @@
-import { render } from "lit";
+import { nothing, render } from "lit";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { WorkspaceWidget, WidgetManifestView } from "../lib/workspace/types.ts";
 import {
@@ -42,6 +42,42 @@ function renderToContainer(template: unknown): HTMLElement {
   document.body.appendChild(container);
   render(template as never, container);
   return container;
+}
+
+function connectRenderedWidget(params: {
+  widget?: WorkspaceWidget;
+  manifest?: WidgetManifestView;
+  context?: CustomWidgetHostContext;
+}) {
+  const container = renderToContainer(
+    renderCustomWidgetHost({
+      widget: params.widget ?? widget(),
+      manifest: params.manifest ?? manifest(),
+      context: params.context ?? host(),
+    }),
+  );
+  const iframe = container.querySelector("iframe");
+  if (!iframe) {
+    throw new Error("expected custom widget iframe");
+  }
+  const channel = new MessageChannel();
+  const posts: unknown[] = [];
+  channel.port1.addEventListener("message", (event) => posts.push(event.data));
+  channel.port1.start();
+  window.dispatchEvent(
+    new MessageEvent("message", {
+      data: { v: 1, type: "workspace:bridge:init", token: BRIDGE_TOKEN },
+      source: iframe.contentWindow,
+      ports: [channel.port2],
+    }),
+  );
+  return {
+    childPort: channel.port1,
+    container,
+    iframe,
+    posts,
+    disconnect: () => render(nothing, container),
+  };
 }
 
 afterEach(() => {
@@ -124,5 +160,107 @@ describe("renderCustomWidgetHost DOM", () => {
     expect(iframe?.getAttribute("src")).toMatch(
       new RegExp(`^/gw/plugins/workspaces/widgets/${BRIDGE_TOKEN}/revenue-chart/index\\.html$`),
     );
+  });
+});
+
+describe("renderCustomWidgetHost bridge", () => {
+  it("drops a foreign bootstrap and accepts only its iframe document", async () => {
+    const container = renderToContainer(
+      renderCustomWidgetHost({ widget: widget(), manifest: manifest(), context: host() }),
+    );
+    const iframe = container.querySelector("iframe");
+    if (!iframe) {
+      throw new Error("expected custom widget iframe");
+    }
+    const foreign = document.createElement("iframe");
+    document.body.append(foreign);
+    const foreignChannel = new MessageChannel();
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: { v: 1, type: "workspace:bridge:init", token: BRIDGE_TOKEN },
+        source: foreign.contentWindow,
+        ports: [foreignChannel.port2],
+      }),
+    );
+    const channel = new MessageChannel();
+    const posts: unknown[] = [];
+    channel.port1.addEventListener("message", (event) => posts.push(event.data));
+    channel.port1.start();
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: { v: 1, type: "workspace:bridge:init", token: BRIDGE_TOKEN },
+        source: iframe.contentWindow,
+        ports: [channel.port2],
+      }),
+    );
+    channel.port1.postMessage({
+      v: 1,
+      type: "workspace:getData",
+      requestId: "r2",
+      bindingId: "value",
+    });
+
+    await vi.waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]).toMatchObject({
+      type: "workspace:data",
+      requestId: "r2",
+      bindingId: "value",
+    });
+    channel.port1.close();
+    foreignChannel.port1.close();
+    render(nothing, container);
+  });
+
+  it("sends an approved prompt with a gateway idempotency key", async () => {
+    const request = vi.fn(async () => ({ runId: "run-1", status: "started" }));
+    const connected = connectRenderedWidget({
+      manifest: manifest({ name: "prompt-send-test", capabilities: ["prompt:send"] }),
+      context: host({ client: { request } as never, confirmPrompt: () => true }),
+    });
+    connected.childPort.postMessage({
+      v: 1,
+      type: "workspace:sendPrompt",
+      requestId: "r1",
+      text: "Summarize this workspace",
+    });
+
+    await vi.waitFor(() => expect(request).toHaveBeenCalledOnce());
+    expect(request).toHaveBeenCalledWith("chat.send", {
+      sessionKey: "main",
+      message: "Summarize this workspace",
+      deliver: false,
+      idempotencyKey: expect.stringMatching(/^[0-9a-f-]{36}$/i),
+    });
+    connected.childPort.close();
+    connected.disconnect();
+  });
+
+  it.each([
+    [{ source: "rpc", method: "sessions.delete" } as const],
+    [{ source: "rpc", method: "sessions.list" } as const],
+    [{ source: "file", path: "private.json" } as const],
+  ])("denies privileged binding %o without calling the gateway", async (binding) => {
+    const request = vi.fn(async () => ({ leaked: true }));
+    const connected = connectRenderedWidget({
+      widget: widget({ bindings: { value: binding } }),
+      manifest: manifest({ bindings: { value: binding } }),
+      context: host({ client: { request } as never }),
+    });
+    connected.childPort.postMessage({
+      v: 1,
+      type: "workspace:getData",
+      requestId: "r1",
+      bindingId: "value",
+    });
+
+    await vi.waitFor(() => expect(connected.posts.length).toBeGreaterThan(0));
+    expect(connected.posts[0]).toMatchObject({
+      type: "workspace:error",
+      code: "binding_denied",
+      requestId: "r1",
+    });
+    expect(request).not.toHaveBeenCalled();
+    connected.childPort.close();
+    connected.disconnect();
   });
 });

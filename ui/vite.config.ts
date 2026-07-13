@@ -169,10 +169,9 @@ export function resolveControlUiBuildInfo(
     ...metadata,
     branch,
     dirty,
-    buildId: normalizeControlUiBuildInfo({
-      ...metadata,
-      buildId: explicitBuildId,
-    }).buildId,
+    buildId: normalizeControlUiBuildInfo(
+      explicitBuildId ? { ...metadata, buildId: explicitBuildId } : metadata,
+    ).buildId,
   };
 }
 

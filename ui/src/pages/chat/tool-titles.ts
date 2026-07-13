@@ -131,6 +131,17 @@ export function configureToolTitleFetcher(params: {
   agentId?: string | null;
   onTitlesChanged: (() => void) | null;
 }): void {
+  if (!params.client) {
+    titlesDisabledByGateway = false;
+    titlesByKey.clear();
+    pendingKeys.clear();
+    failedKeys.clear();
+    queue = new Map();
+    if (flushTimer) {
+      clearTimeout(flushTimer);
+      flushTimer = null;
+    }
+  }
   if (params.client !== activeClient) {
     titlesDisabledByGateway = false;
   }

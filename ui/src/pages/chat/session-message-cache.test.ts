@@ -13,6 +13,37 @@ function createHost() {
 }
 
 describe("session message cache", () => {
+  it("canonicalizes main aliases without crossing agent scopes", () => {
+    const host = createHost();
+    const cache: ChatMessageCache = new Map();
+
+    cacheChatMessages(cache, host, { sessionKey: "home" }, ["ops"]);
+
+    expect(readChatMessagesFromCache(cache, host, { sessionKey: "agent:ops:home" })).toEqual([
+      "ops",
+    ]);
+    expect(readChatMessagesFromCache(cache, host, { sessionKey: "agent:ops:main" })).toEqual([
+      "ops",
+    ]);
+    expect(readChatMessagesFromCache(cache, host, { sessionKey: "agent:main:home" })).toEqual([]);
+  });
+
+  it("uses explicit event agent identity for global cache targets", () => {
+    const host = {
+      assistantAgentId: "work",
+      agentsList: { defaultId: "main", mainKey: "main" },
+    };
+    const cache: ChatMessageCache = new Map();
+
+    cacheChatMessages(cache, host, { sessionKey: "global" }, ["work"]);
+    cacheChatMessages(cache, host, { sessionKey: "global", agentId: "main" }, ["main"]);
+
+    expect(readChatMessagesFromCache(cache, host, { sessionKey: "global" })).toEqual(["work"]);
+    expect(
+      readChatMessagesFromCache(cache, host, { sessionKey: "global", agentId: "main" }),
+    ).toEqual(["main"]);
+  });
+
   it("keeps only the 20 most recently used sessions and 100 latest messages", () => {
     const host = createHost();
     const cache: ChatMessageCache = new Map();

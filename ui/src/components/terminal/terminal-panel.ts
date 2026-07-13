@@ -152,7 +152,7 @@ function loadPersistedSessionIds(): string[] {
 }
 
 /** `<openclaw-terminal-panel>` — the dockable Control UI shell surface. */
-class OpenClawTerminalPanel extends OpenClawLitElement {
+export class OpenClawTerminalPanel extends OpenClawLitElement {
   /** Gateway client used for terminal.* RPCs; null until connected. */
   @property({ attribute: false }) client: TerminalGatewayClient | null = null;
   /** Agent whose workspace and sandbox policy own newly opened sessions. */
@@ -1167,12 +1167,6 @@ class OpenClawTerminalPanel extends OpenClawLitElement {
       color: var(--danger, #ff6b6b);
     }
   `;
-}
-
-// Guarded define (not @customElement) so re-imports under a shared registry —
-// e.g. vitest with isolate=false — don't throw "already registered".
-if (!customElements.get("openclaw-terminal-panel")) {
-  customElements.define("openclaw-terminal-panel", OpenClawTerminalPanel);
 }
 
 declare global {

@@ -1969,6 +1969,106 @@ describe("grouped chat rendering", () => {
     expect(onAssistantAttachmentLoaded).toHaveBeenCalledTimes(2);
   });
 
+  it("renders verified local assistant attachments through the authenticated media route", async () => {
+    const source = `/tmp/openclaw/${crypto.randomUUID()} test image.png`;
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.includes("meta=1")) {
+        const headers = init?.headers as Headers;
+        expect(headers.get("Authorization")).toBe("Bearer session-token");
+        return { ok: true, json: async () => mediaTicketPayload("ticket-local") };
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+    const container = document.createElement("div");
+    const renderMessage = () =>
+      renderAssistantMessage(
+        container,
+        {
+          id: "assistant-local-media-inline",
+          role: "assistant",
+          content: `Local image\nMEDIA:${source}`,
+          timestamp: Date.now(),
+        },
+        {
+          showToolCalls: false,
+          basePath: "/openclaw",
+          assistantAttachmentAuthToken: "session-token",
+          localMediaPreviewRoots: ["/tmp/openclaw"],
+          onRequestUpdate: renderMessage,
+        },
+      );
+
+    renderMessage();
+    expect(container.querySelector(".chat-assistant-attachment-badge")?.textContent?.trim()).toBe(
+      "Checking...",
+    );
+    await flushAssistantAttachmentAvailabilityChecks();
+
+    const expectedMetaUrl = `/openclaw/__openclaw__/assistant-media?source=${encodeURIComponent(source).replaceAll("%20", "+")}&meta=1`;
+    const [, fetchInit] = requireFetchCallForUrl(fetchMock, expectedMetaUrl);
+    expectSameOriginGet(fetchInit);
+    expect(container.querySelector<HTMLImageElement>(".chat-message-image")?.getAttribute("src")).toBe(
+      expectedMetaUrl.replace("&meta=1", "&mediaTicket=ticket-local"),
+    );
+  });
+
+  it("preserves same-origin assistant attachments without local preview rewriting", () => {
+    const container = document.createElement("div");
+    renderAssistantMessage(
+      container,
+      {
+        id: "assistant-same-origin-media-inline",
+        role: "assistant",
+        content: "Inline\nMEDIA:/media/inbound/test-image.png\nMEDIA:/__openclaw__/media/test-doc.pdf",
+        timestamp: Date.now(),
+      },
+      {
+        showToolCalls: false,
+        basePath: "/openclaw",
+        localMediaPreviewRoots: ["/tmp/openclaw"],
+      },
+    );
+
+    expect(container.querySelector<HTMLImageElement>(".chat-message-image")?.getAttribute("src")).toBe(
+      "/media/inbound/test-image.png",
+    );
+    expect(
+      container.querySelector<HTMLAnchorElement>(".chat-assistant-attachment-card__link")?.getAttribute(
+        "href",
+      ),
+    ).toBe("/__openclaw__/media/test-doc.pdf");
+    expect(container.querySelector(".chat-assistant-attachment-card--blocked")).toBeNull();
+  });
+
+  it("renders local files outside preview roots as unavailable", () => {
+    const container = document.createElement("div");
+    renderAssistantMessage(
+      container,
+      {
+        id: "assistant-blocked-local-media",
+        role: "assistant",
+        content: "Blocked\nMEDIA:/Users/test/Documents/private.pdf\nDone",
+        timestamp: Date.now(),
+      },
+      {
+        showToolCalls: false,
+        basePath: "/openclaw",
+        localMediaPreviewRoots: ["/tmp/openclaw"],
+      },
+    );
+
+    expect(container.querySelector(".chat-assistant-attachment-card__link")).toBeNull();
+    const blocked = container.querySelector(".chat-assistant-attachment-card--blocked");
+    expect(blocked?.querySelector(".chat-assistant-attachment-card__title")?.textContent).toBe(
+      "private.pdf",
+    );
+    expect(blocked?.querySelector(".chat-assistant-attachment-card__reason")?.textContent?.trim()).toBe(
+      "Outside allowed folders",
+    );
+    expect(container.querySelector(".chat-text")?.textContent?.trim()).toBe("Blocked\nDone");
+  });
+
   it("renders transcript video URLs with encoded extensions", () => {
     const container = document.createElement("div");
     const mediaUrl = "https://cdn.example/clip%2Emp4?download=1";

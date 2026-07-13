@@ -292,7 +292,7 @@ function anchorFromEvent(event: Event): HTMLAnchorElement | null {
   return null;
 }
 
-class GitHubLinkHovercardProvider extends HTMLElement {
+export class GitHubLinkHovercardProvider extends HTMLElement {
   client: GatewayBrowserClient | null = null;
 
   private readonly cache = new Map<string, CacheEntry>();
@@ -575,8 +575,4 @@ class GitHubLinkHovercardProvider extends HTMLElement {
     card.style.left = `${Math.min(Math.max(VIEWPORT_PADDING, anchorRect.left), maxLeft)}px`;
     card.style.top = `${Math.min(Math.max(VIEWPORT_PADDING, top), maxTop)}px`;
   }
-}
-
-if (!customElements.get("openclaw-github-link-hovercard-provider")) {
-  customElements.define("openclaw-github-link-hovercard-provider", GitHubLinkHovercardProvider);
 }

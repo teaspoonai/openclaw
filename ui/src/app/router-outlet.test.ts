@@ -38,18 +38,18 @@ function createOutlet(router: TestRouter, context: TestContext): RouterOutletEle
   return outlet;
 }
 
+afterEach(() => {
+  document.body.replaceChildren();
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
+
 async function settleOutlet(outlet: RouterOutletElement): Promise<void> {
   for (let attempt = 0; attempt < 5; attempt += 1) {
     await Promise.resolve();
     await outlet.updateComplete;
   }
 }
-
-afterEach(() => {
-  document.body.replaceChildren();
-  vi.unstubAllGlobals();
-  vi.useRealTimers();
-});
 
 describe("openclaw-router-outlet", () => {
   it("renders route data through the public custom-element boundary", async () => {

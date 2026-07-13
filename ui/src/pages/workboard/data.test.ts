@@ -2859,6 +2859,62 @@ describe("workboard controller", () => {
     expect(state.editingCardId).toBeNull();
   });
 
+  it("creates cards from draft state through the save action", async () => {
+    const host = {};
+    const state = getWorkboardState(host);
+    state.draftTitle = "Write tests";
+    state.draftNotes = "Cover the happy path";
+    state.draftSessionKey = "agent:main:dashboard:1";
+    const created = {
+      ...sampleCard,
+      id: "card-2",
+      title: "Write tests",
+      sessionKey: "agent:main:dashboard:1",
+    };
+    const client = createClient({ "workboard.cards.create": { card: created } });
+
+    await saveWorkboardCardDraft({ host, client: client as never });
+
+    expect(client.request).toHaveBeenCalledWith("workboard.cards.create", {
+      title: "Write tests",
+      notes: "Cover the happy path",
+      status: "todo",
+      priority: "normal",
+      labels: [],
+      agentId: "",
+      sessionKey: "agent:main:dashboard:1",
+    });
+    expect(state.cards[0]).toMatchObject({ id: "card-2", title: "Write tests" });
+    expect(state.draftOpen).toBe(false);
+    expect(state.draftSessionKey).toBe("");
+  });
+
+  it("creates template-backed cards through the save action", async () => {
+    const host = {};
+    const state = getWorkboardState(host);
+    state.draftTitle = "Fix: flaky worker";
+    state.draftTemplateId = "bugfix";
+    const created = {
+      ...sampleCard,
+      id: "card-2",
+      title: "Fix: flaky worker",
+      metadata: { templateId: "bugfix" },
+    } satisfies WorkboardCard;
+    const client = createClient({ "workboard.cards.create": { card: created } });
+
+    await saveWorkboardCardDraft({ host, client: client as never });
+
+    expect(client.request).toHaveBeenCalledWith(
+      "workboard.cards.create",
+      expect.objectContaining({
+        title: "Fix: flaky worker",
+        templateId: "bugfix",
+      }),
+    );
+    expect(state.cards[0]?.metadata?.templateId).toBe("bugfix");
+    expect(state.draftTemplateId).toBe("");
+  });
+
   it("keeps edit-modal status saves from being rewritten by stale lifecycle sync", async () => {
     const host = {};
     const state = getWorkboardState(host);

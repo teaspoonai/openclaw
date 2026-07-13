@@ -33,6 +33,25 @@ describe("renderAbout", () => {
     await i18n.setLocale("en");
   });
 
+  it("keeps version, commit, branch, and localized UTC build date in one definition strip", () => {
+    const container = document.createElement("div");
+    render(renderAbout(createProps()), container);
+
+    const strip = container.querySelector(".about-build-strip");
+    const items = strip?.querySelectorAll(":scope > div");
+    expect(strip?.getAttribute("role")).toBe("group");
+    expect(strip?.getAttribute("aria-label")).toBe("Control UI build details");
+    expect(items).toHaveLength(4);
+    expect(items?.[0]?.textContent).toContain("2026.7.10");
+    expect(items?.[1]?.querySelector("code")?.textContent).toBe(COMMIT.slice(0, 12));
+    expect(items?.[1]?.querySelector("code")?.getAttribute("title")).toBe(COMMIT);
+    expect(items?.[2]?.textContent).toContain("feature/build-chip*");
+    const time = items?.[3]?.querySelector("time");
+    expect(time?.getAttribute("datetime")).toBe(BUILT_AT);
+    expect(time?.getAttribute("title")).toBe(BUILT_AT);
+    expect(time?.textContent).not.toContain("Invalid Date");
+  });
+
   it("keeps the connected Gateway version separate from the browser artifact", () => {
     const container = document.createElement("div");
     render(renderAbout(createProps()), container);

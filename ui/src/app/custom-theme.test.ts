@@ -123,6 +123,37 @@ describe("custom theme import helpers", () => {
     ).rejects.toThrow("Unexpected redirect");
   });
 
+  it.each([
+    ['url("https://example.com/track")', "background"],
+    ["oklch(0.98 0.01 120)/*", "background"],
+    ['image-set("https://example.com/pixel.png" 1x)', "background"],
+    ["var(--attacker-font)", "font-sans"],
+  ])("rejects unsafe imported CSS token %s", async (token, key) => {
+    const payload = createTweakcnPayload();
+    if (key === "font-sans") {
+      payload.cssVars.theme[key] = token;
+    } else {
+      payload.cssVars.light.background = token;
+    }
+    const fetchImpl = vi.fn(async () => createResponse(JSON.stringify(payload))) as unknown as
+      | typeof fetch;
+
+    await expect(
+      importCustomThemeFromUrl("https://tweakcn.com/themes/cmlhfpjhw000004l4f4ax3m7z", fetchImpl),
+    ).rejects.toThrow("Unsupported tweakcn token");
+  });
+
+  it("validates imported font families without regex backtracking", async () => {
+    const payload = createTweakcnPayload();
+    payload.cssVars.theme["font-sans"] = `${"Inter, ".repeat(20)}@bad`;
+    const fetchImpl = vi.fn(async () => createResponse(JSON.stringify(payload))) as unknown as
+      | typeof fetch;
+
+    await expect(
+      importCustomThemeFromUrl("https://tweakcn.com/themes/cmlhfpjhw000004l4f4ax3m7z", fetchImpl),
+    ).rejects.toThrow("Unsupported tweakcn token");
+  });
+
   it("parses stored imported themes and rejects malformed records", () => {
     const imported = createImportedTheme();
 
@@ -133,5 +164,37 @@ describe("custom theme import helpers", () => {
     expect(parsed.themeId).toBe("cmlhfpjhw000004l4f4ax3m7z");
     expect(parseImportedCustomTheme({ ...imported, themeId: "claude" })?.themeId).toBe("claude");
     expect(parseImportedCustomTheme({ ...imported, light: {} })).toBeNull();
+  });
+
+  it("syncs the managed custom theme style tag in the document head", () => {
+    const appendChild = vi.fn();
+    const remove = vi.fn();
+    const style = { id: "", textContent: "", remove } as unknown as HTMLStyleElement;
+    const documentStub = {
+      head: { appendChild },
+      createElement: vi.fn(() => style),
+      getElementById: vi.fn(() => null),
+    } as unknown as Document;
+    vi.stubGlobal("document", documentStub);
+
+    syncCustomThemeStyleTag(createImportedTheme());
+
+    expect(appendChild).toHaveBeenCalledWith(style);
+    expect(style.id).toBe("openclaw-custom-theme");
+    expect(style.textContent).toContain(':root[data-theme="custom"]');
+
+    vi.stubGlobal("document", {
+      ...documentStub,
+      getElementById: vi.fn(() => style),
+    } as unknown as Document);
+    syncCustomThemeStyleTag(null);
+    expect(remove).toHaveBeenCalledOnce();
+  });
+
+  it("rejects stored custom themes with missing tokens when syncing", () => {
+    const theme = { ...createImportedTheme(), light: undefined } as unknown as ImportedCustomTheme;
+    expect(() => syncCustomThemeStyleTag(theme)).toThrow(
+      "Stored custom theme is missing required tokens.",
+    );
   });
 });

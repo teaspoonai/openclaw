@@ -22,7 +22,8 @@ import {
 } from "../../test-helpers/chat-model.ts";
 import {
   getChatAttachmentDataUrl,
-  registerChatAttachmentPayload,
+  registerChatAttachmentPayload as registerStoredChatAttachmentPayload,
+  releaseChatAttachmentPayloads,
 } from "./attachment-payload-store.ts";
 import { switchChatFastMode, switchChatModel, switchChatThinkingLevel } from "./chat-session.ts";
 import { renderChat, resetChatViewState } from "./chat-view.ts";
@@ -41,6 +42,15 @@ import { renderWelcomeState } from "./components/chat-welcome.ts";
 import { RealtimeTalkLevelSignal } from "./realtime-talk-level.ts";
 
 type ChatRealtimeTalkOptionsProps = Parameters<typeof renderRealtimeTalkOptions>[0];
+const registeredAttachmentPayloads = new Map<string, ReturnType<typeof registerStoredChatAttachmentPayload>>();
+
+function registerChatAttachmentPayload(
+  params: Parameters<typeof registerStoredChatAttachmentPayload>[0],
+) {
+  const attachment = registerStoredChatAttachmentPayload(params);
+  registeredAttachmentPayloads.set(attachment.id, attachment);
+  return attachment;
+}
 
 const refreshVisibleToolsEffectiveForCurrentSessionMock = vi.hoisted(() =>
   vi.fn(async (state: ChatHeaderTestState) => {
@@ -1719,6 +1729,8 @@ describe("chat composer workbench", () => {
 });
 
 afterEach(() => {
+  releaseChatAttachmentPayloads([...registeredAttachmentPayloads.values()]);
+  registeredAttachmentPayloads.clear();
   vi.useRealTimers();
   buildChatItemsMock.mockClear();
   renderMessageGroupMock.mockClear();

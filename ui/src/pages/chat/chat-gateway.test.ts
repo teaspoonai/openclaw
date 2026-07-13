@@ -403,6 +403,1528 @@ describe("chat side result gateway events", () => {
   });
 });
 
+describe("handleChatGatewayEvent", () => {
+  it("returns null when payload is missing", () => {
+    const state = createState();
+    expect(handleChatGatewayEvent(state, undefined)).toBe(null);
+  });
+
+  it("returns null when sessionKey does not match and no active run is in flight", () => {
+    const state = createState({ sessionKey: "main" });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "other",
+      state: "final",
+    };
+    expect(handleChatGatewayEvent(state, payload)).toBe(null);
+  });
+
+  it("caches final messages for a switched-away session", () => {
+    const visibleMessage = {
+      role: "assistant",
+      content: [{ type: "text", text: "main visible" }],
+    };
+    const state = createState({
+      sessionKey: "main",
+      chatMessages: [visibleMessage],
+      chatMessagesBySession: new Map(),
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "other",
+      state: "final",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "other final" }],
+      },
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe(null);
+    expect(state.chatMessages).toEqual([visibleMessage]);
+    expect(state.chatMessagesBySession?.get("agent:main:other")).toEqual([payload.message]);
+  });
+
+  it.each([
+    {
+      name: "canonical default-session finals under the main alias",
+      activeSessionKey: "agent:main:other",
+      payloadSessionKey: "agent:main:main",
+      cacheKey: "agent:main:main",
+      withConfiguredDefaults: false,
+    },
+    {
+      name: "configured default-session finals under runtime aliases",
+      activeSessionKey: "agent:ops:other",
+      payloadSessionKey: "agent:ops:home",
+      cacheKey: "agent:ops:main",
+      withConfiguredDefaults: true,
+    },
+    {
+      name: "canonical non-main finals under the plain session key",
+      activeSessionKey: "main",
+      payloadSessionKey: "agent:main:project",
+      cacheKey: "agent:main:project",
+      withConfiguredDefaults: false,
+    },
+  ])(
+    "caches $name",
+    ({ activeSessionKey, payloadSessionKey, cacheKey, withConfiguredDefaults }) => {
+      const state = createState({ sessionKey: activeSessionKey, chatMessagesBySession: new Map() });
+      const payload: ChatEventPayload = {
+        runId: "run-1",
+        sessionKey: payloadSessionKey,
+        state: "final",
+        message: {
+          role: "assistant",
+          content: [{ type: "text", text: "cached final" }],
+        },
+      };
+
+      if (withConfiguredDefaults) {
+        (state as Record<string, unknown>).hello = {
+          snapshot: {
+            sessionDefaults: {
+              defaultAgentId: "ops",
+              mainKey: "home",
+            },
+          },
+        };
+      }
+
+      expect(handleChatGatewayEvent(state, payload)).toBe(null);
+      expect(state.chatMessagesBySession?.get(cacheKey)).toEqual([payload.message]);
+      expect(state.chatMessagesBySession?.size).toBe(1);
+    },
+  );
+
+  it("caches inactive global finals under the payload agent only", () => {
+    const visibleMessage = {
+      role: "assistant",
+      content: [{ type: "text", text: "work visible" }],
+    };
+    const state = createState({
+      sessionKey: "global",
+      assistantAgentId: "work",
+      agentsList: { defaultId: "main" },
+      chatMessages: [visibleMessage],
+      chatMessagesBySession: new Map(),
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-main-global",
+      sessionKey: "global",
+      agentId: "main",
+      state: "final",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "main final" }],
+      },
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe(null);
+    expect(state.chatMessages).toEqual([visibleMessage]);
+    expect(state.chatMessagesBySession?.get("agent:main:main")).toEqual([payload.message]);
+    expect(state.chatMessagesBySession?.has("agent:work:main")).toBe(false);
+  });
+
+  it("does not arm stale active-row suppression for an unowned selected-session final", () => {
+    const state = createState({ sessionKey: "main" }) as ChatState & {
+      lastLocalTerminalReconcile?: unknown;
+    };
+    const payload: ChatEventPayload = {
+      runId: "observed-run",
+      sessionKey: "main",
+      state: "final",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "Observed reply" }],
+      },
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("final");
+    expect(state.lastLocalTerminalReconcile).toBeUndefined();
+  });
+
+  it("ignores selected-agent global events for another agent", () => {
+    const state = createState({
+      sessionKey: "global",
+      assistantAgentId: "work",
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-main-global",
+      sessionKey: "global",
+      agentId: "main",
+      state: "final",
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe(null);
+    expect(state.chatRunId).toBeNull();
+  });
+
+  it("ignores canonical global events for another selected agent main alias", () => {
+    const state = createState({
+      sessionKey: "agent:work:main",
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-main-global",
+      sessionKey: "global",
+      agentId: "main",
+      state: "final",
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe(null);
+    expect(state.chatRunId).toBeNull();
+  });
+
+  it("treats unscoped global events as default-agent events only", () => {
+    const state = createState({
+      sessionKey: "global",
+      assistantAgentId: "work",
+      agentsList: { defaultId: "main" },
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-default-global",
+      sessionKey: "global",
+      state: "final",
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe(null);
+    expect(state.chatRunId).toBeNull();
+  });
+
+  it("adopts canonical global deltas for the selected agent main alias", () => {
+    const state = createState({
+      sessionKey: "agent:work:main",
+      chatRunId: null,
+      chatStream: null,
+      chatStreamStartedAt: null,
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-work-global",
+      sessionKey: "global",
+      agentId: "work",
+      state: "delta",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "Work reply" }],
+      },
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("delta");
+    expect(state.chatRunId).toBe("run-work-global");
+    expect(state.chatStream).toBe("Work reply");
+    expect(state.chatStreamStartedAt).toEqual(expect.any(Number));
+  });
+
+  it("accepts delta events for the active run when gateway emits a canonical session key", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: null,
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "agent:main:main",
+      state: "delta",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "Live reply" }],
+      },
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("delta");
+    expect(state.chatStream).toBe("Live reply");
+    expect(state.chatRunId).toBe("run-1");
+  });
+
+  it("appends gateway deltaText when the cumulative snapshot matches the current prefix", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: "Live",
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "delta",
+      deltaText: " reply",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "Live reply" }],
+      },
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("delta");
+    expect(state.chatStream).toBe("Live reply");
+  });
+
+  it("uses the cumulative snapshot when the first observed delta joins mid-stream", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: null,
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "delta",
+      deltaText: " reply",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "Live reply" }],
+      },
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("delta");
+    expect(state.chatStream).toBe("Live reply");
+  });
+
+  it("appends gateway deltaText when no full message snapshot is present", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: "Live",
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "delta",
+      deltaText: " reply",
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("delta");
+    expect(state.chatStream).toBe("Live reply");
+  });
+
+  it("uses the cumulative snapshot when a missed delta would make append stale", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: "Hello",
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "delta",
+      deltaText: "!",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "Hello world!" }],
+      },
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("delta");
+    expect(state.chatStream).toBe("Hello world!");
+  });
+
+  it("uses the cumulative snapshot when a same-length missed replacement changes the prefix", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: "AB",
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "delta",
+      deltaText: "E",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "CDE" }],
+      },
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("delta");
+    expect(state.chatStream).toBe("CDE");
+  });
+
+  it("replaces the stream when gateway deltaText marks a replacement", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: "Alpha beta",
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "delta",
+      deltaText: "Alpha",
+      replace: true,
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "ignored snapshot" }],
+      },
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("delta");
+    expect(state.chatStream).toBe("Alpha");
+  });
+
+  it("adopts the run id for selected-session live deltas observed from another channel", () => {
+    const state = createState({
+      sessionKey: "agent:main:feishu:direct:peer-1",
+      chatRunId: null,
+      chatStream: null,
+      chatStreamStartedAt: null,
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-feishu-1",
+      sessionKey: "agent:main:feishu:direct:peer-1",
+      state: "delta",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "Observed reply" }],
+      },
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("delta");
+    expect(state.chatRunId).toBe("run-feishu-1");
+    expect(state.chatStream).toBe("Observed reply");
+    expect(state.chatStreamStartedAt).toEqual(expect.any(Number));
+  });
+
+  it("adopts the run id when the selected main alias receives canonical live deltas", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: null,
+      chatStream: null,
+      chatStreamStartedAt: null,
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-canonical-main",
+      sessionKey: "agent:main:main",
+      state: "delta",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "Canonical reply" }],
+      },
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("delta");
+    expect(state.chatRunId).toBe("run-canonical-main");
+    expect(state.chatStream).toBe("Canonical reply");
+    expect(state.chatStreamStartedAt).toEqual(expect.any(Number));
+  });
+
+  it("accepts final events for the active run when gateway emits a canonical session key", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: "Live reply",
+      chatStreamStartedAt: 100,
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "agent:main:main",
+      state: "final",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "Live reply" }],
+      },
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("final");
+    expect(state.chatMessages).toEqual([payload.message]);
+    expect(state.chatRunId).toBe(null);
+    expect(state.chatStream).toBe(null);
+    expect(state.chatStreamStartedAt).toBe(null);
+  });
+
+  it("does not duplicate streamed text when final payload has no role", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: "Live reply",
+      chatStreamStartedAt: 100,
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "final",
+      message: {
+        text: "Live reply",
+      },
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("final");
+    expect(state.chatMessages).toEqual([payload.message]);
+    expect(state.chatRunId).toBe(null);
+    expect(state.chatStream).toBe(null);
+    expect(state.chatStreamStartedAt).toBe(null);
+  });
+
+  it("clears keyed commentary with the final answer by default", () => {
+    const user = { role: "user", content: [{ type: "text", text: "Ask" }], timestamp: 1 };
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatMessages: [user],
+      chatStream: null,
+      chatStreamStartedAt: null,
+    }) as ChatState & {
+      chatStreamSegments: Array<{ text: string; ts: number; itemId: string }>;
+    };
+    state.chatStreamSegments = [{ text: "Looking into it.", ts: 2, itemId: "preamble-1" }];
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "final",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "Final answer." }],
+        timestamp: 5,
+      },
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("final");
+    expect(state.chatMessages).toHaveLength(2);
+    expectTextChatMessage(state.chatMessages[0], "user", "Ask");
+    expectTextChatMessage(state.chatMessages[1], "assistant", "Final answer.");
+    expect(state.chatStreamSegments).toEqual([]);
+  });
+
+  it("persists keyed commentary alongside the final answer when chatPersistCommentary is true", () => {
+    const user = { role: "user", content: [{ type: "text", text: "Ask" }], timestamp: 1 };
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatMessages: [user],
+      chatStream: null,
+      chatStreamStartedAt: null,
+      settings: { chatPersistCommentary: true },
+    }) as ChatState & {
+      chatStreamSegments: Array<{ text: string; ts: number; itemId: string }>;
+    };
+    state.chatStreamSegments = [{ text: "Looking into it.", ts: 2, itemId: "preamble-1" }];
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "final",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "Final answer." }],
+        timestamp: 5,
+      },
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("final");
+    expect(state.chatMessages).toHaveLength(3);
+    expectTextChatMessage(state.chatMessages[0], "user", "Ask");
+    expectTextChatMessage(state.chatMessages[1], "assistant", "Looking into it.");
+    expectTextChatMessage(state.chatMessages[2], "assistant", "Final answer.");
+    expect(state.chatStreamSegments).toEqual([]);
+  });
+
+  it("reconciles cached run and indicator state on terminal events", () => {
+    vi.useFakeTimers();
+    try {
+      const state = createState({
+        sessionKey: "main",
+        chatRunId: "run-1",
+        chatStream: "Live reply",
+        chatStreamStartedAt: 100,
+      }) as ChatState & {
+        chatRunStatus?: unknown;
+        compactionStatus?: unknown;
+        compactionClearTimer?: ReturnType<typeof setTimeout> | null;
+        fallbackStatus?: unknown;
+        fallbackClearTimer?: ReturnType<typeof setTimeout> | null;
+        sessionsResult?: {
+          ts: number;
+          path: string;
+          count: number;
+          defaults: Record<string, unknown>;
+          sessions: Array<Record<string, unknown>>;
+        };
+      };
+      state.compactionStatus = {
+        phase: "active",
+        runId: "run-1",
+        startedAt: 100,
+        completedAt: null,
+      };
+      state.compactionClearTimer = setTimeout(() => undefined, 1_000);
+      state.fallbackStatus = {
+        selected: "openai/gpt-5.5",
+        active: "anthropic/claude-sonnet-4-6",
+        attempts: [],
+        occurredAt: 100,
+      };
+      state.fallbackClearTimer = setTimeout(() => undefined, 1_000);
+      state.sessionsResult = {
+        ts: 0,
+        path: "",
+        count: 1,
+        defaults: {},
+        sessions: [
+          {
+            key: "main",
+            kind: "direct",
+            updatedAt: 1,
+            hasActiveRun: true,
+            activeRunIds: ["run-1"],
+            status: "running",
+            startedAt: 100,
+          },
+        ],
+      };
+      const payload: ChatEventPayload = {
+        runId: "run-1",
+        sessionKey: "main",
+        state: "final",
+        message: {
+          role: "assistant",
+          content: [{ type: "text", text: "Live reply" }],
+        },
+      };
+
+      expect(handleChatGatewayEvent(state, payload)).toBe("final");
+
+      expect(state.chatRunId).toBeNull();
+      expect(state.chatStream).toBeNull();
+      expect(state.chatStreamStartedAt).toBeNull();
+      expect(state.compactionStatus).toBeNull();
+      expect(state.compactionClearTimer).toBeNull();
+      expect(state.fallbackStatus).toBeNull();
+      expect(state.fallbackClearTimer).toBeNull();
+      expect(state.chatRunStatus).toMatchObject({
+        phase: "done",
+        runId: "run-1",
+        sessionKey: "main",
+      });
+      expect(state.sessionsResult.sessions[0]).toMatchObject({
+        hasActiveRun: false,
+        status: "done",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("still drops events when neither session key nor active run id matches", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: "Working...",
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-2",
+      sessionKey: "agent:main:main",
+      state: "delta",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "Wrong run" }],
+      },
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe(null);
+    expect(state.chatRunId).toBe("run-1");
+    expect(state.chatStream).toBe("Working...");
+    expect(state.chatMessages).toStrictEqual([]);
+  });
+
+  it("returns null for delta from another run", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-user",
+      chatStream: "Hello",
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-announce",
+      sessionKey: "main",
+      state: "delta",
+      message: { role: "assistant", content: [{ type: "text", text: "Done" }] },
+    };
+    expect(handleChatGatewayEvent(state, payload)).toBe(null);
+    expect(state.chatRunId).toBe("run-user");
+    expect(state.chatStream).toBe("Hello");
+  });
+
+  it("ignores NO_REPLY delta updates", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: "Hello",
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "delta",
+      message: { role: "assistant", content: [{ type: "text", text: "NO_REPLY" }] },
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("delta");
+    expect(state.chatStream).toBe("Hello");
+  });
+
+  it("appends final payload from another run without clearing active stream", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-user",
+      chatStream: "Working...",
+      chatStreamStartedAt: 123,
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-announce",
+      sessionKey: "main",
+      state: "final",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "Sub-agent findings" }],
+      },
+    };
+    expect(handleChatGatewayEvent(state, payload)).toBe(null);
+    expect(state.chatRunId).toBe("run-user");
+    expect(state.chatStream).toBe("Working...");
+    expect(state.chatStreamStartedAt).toBe(123);
+    expect(state.chatMessages).toHaveLength(1);
+    expect(state.chatMessages[0]).toEqual(payload.message);
+  });
+
+  it("drops NO_REPLY final payload from another run without clearing active stream", () => {
+    const state = createActiveStreamingState();
+    const payload = createOtherRunNoReplyFinalPayload();
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("final");
+    expect(state.chatRunId).toBe("run-user");
+    expect(state.chatStream).toBe("Working...");
+    expect(state.chatStreamStartedAt).toBe(123);
+    expect(state.chatMessages).toStrictEqual([]);
+  });
+
+  it("drops HEARTBEAT_OK final payload from another run without clearing active stream", () => {
+    const state = createActiveStreamingState();
+    const payload = createOtherRunSilentFinalPayload("HEARTBEAT_OK");
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("final");
+    expect(state.chatRunId).toBe("run-user");
+    expect(state.chatStream).toBe("Working...");
+    expect(state.chatStreamStartedAt).toBe(123);
+    expect(state.chatMessages).toStrictEqual([]);
+  });
+
+  it.each(["no_reply", "ANNOUNCE_SKIP", "REPLY_SKIP"])(
+    "keeps plain-text %s final payload from another run without clearing active stream",
+    (text) => {
+      const state = createActiveStreamingState();
+      const payload = createOtherRunSilentFinalPayload(text);
+
+      expect(handleChatGatewayEvent(state, payload)).toBe(null);
+      expect(state.chatRunId).toBe("run-user");
+      expect(state.chatStream).toBe("Working...");
+      expect(state.chatStreamStartedAt).toBe(123);
+      expect(state.chatMessages).toEqual([payload.message]);
+    },
+  );
+
+  it("ignores HEARTBEAT_OK delta updates", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: "Previous visible text",
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "delta",
+      message: { role: "assistant", content: [{ type: "text", text: "HEARTBEAT_OK" }] },
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("delta");
+    expect(state.chatStream).toBe("Previous visible text");
+  });
+
+  it("replaces the stream when a delta snapshot gets shorter", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: "Alpha beta",
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "delta",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "Alpha" }],
+      },
+    };
+    expect(handleChatGatewayEvent(state, payload)).toBe("delta");
+    expect(state.chatStream).toBe("Alpha");
+  });
+
+  it("returns final for another run when payload has no message", () => {
+    const state = createActiveStreamingState();
+    const payload: ChatEventPayload = {
+      runId: "run-announce",
+      sessionKey: "main",
+      state: "final",
+    };
+    expect(handleChatGatewayEvent(state, payload)).toBe("final");
+    expect(state.chatRunId).toBe("run-user");
+    expect(state.chatMessages).toStrictEqual([]);
+  });
+
+  it("keeps active stream for unowned final payloads", () => {
+    const state = createActiveStreamingState();
+    const payload: ChatEventPayload = {
+      sessionKey: "main",
+      state: "final",
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("final");
+    expect(state.chatRunId).toBe("run-user");
+    expect(state.chatStream).toBe("Working...");
+    expect(state.chatStreamStartedAt).toBe(123);
+    expect(state.chatMessages).toStrictEqual([]);
+  });
+
+  it("keeps active stream while appending unowned assistant finals", () => {
+    const state = createActiveStreamingState();
+    const payload: ChatEventPayload = {
+      sessionKey: "main",
+      state: "final",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "Injected note" }],
+      },
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe(null);
+    expect(state.chatRunId).toBe("run-user");
+    expect(state.chatStream).toBe("Working...");
+    expect(state.chatStreamStartedAt).toBe(123);
+    expect(state.chatMessages).toEqual([payload.message]);
+  });
+
+  it.each(["aborted", "error"] as const)(
+    "keeps active stream for unowned %s payloads",
+    (terminalState) => {
+      const state = createActiveStreamingState();
+      const payload: ChatEventPayload = {
+        sessionKey: "main",
+        state: terminalState,
+      };
+
+      expect(handleChatGatewayEvent(state, payload)).toBe(null);
+      expect(state.chatRunId).toBe("run-user");
+      expect(state.chatStream).toBe("Working...");
+      expect(state.chatStreamStartedAt).toBe(123);
+      expect(state.chatMessages).toStrictEqual([]);
+    },
+  );
+
+  it("persists streamed text when final event carries no message", () => {
+    const existingMessage = {
+      role: "user",
+      content: [{ type: "text", text: "Hi" }],
+      timestamp: 1,
+    };
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: "Here is my reply",
+      chatStreamStartedAt: 100,
+      chatMessages: [existingMessage],
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "final",
+    };
+    const assignments = trackChatMessagesAssignments(state);
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("final");
+    expect(assignments).toMatchObject([{ chatRunId: "run-1", chatStream: "Here is my reply" }]);
+    expect(state.chatRunId).toBe(null);
+    expect(state.chatStream).toBe(null);
+    expect(state.chatStreamStartedAt).toBe(null);
+    expect(state.chatMessages).toHaveLength(2);
+    expect(state.chatMessages[0]).toEqual(existingMessage);
+    expectTextChatMessage(state.chatMessages[1], "assistant", "Here is my reply");
+  });
+
+  it("does not persist empty or whitespace-only stream on final", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: "   ",
+      chatStreamStartedAt: 100,
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "final",
+    };
+    expect(handleChatGatewayEvent(state, payload)).toBe("final");
+    expect(state.chatRunId).toBe(null);
+    expect(state.chatStream).toBe(null);
+    expect(state.chatMessages).toStrictEqual([]);
+  });
+
+  it("does not persist null stream on final with no message", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: null,
+      chatStreamStartedAt: 100,
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "final",
+    };
+    expect(handleChatGatewayEvent(state, payload)).toBe("final");
+    expect(state.chatMessages).toStrictEqual([]);
+  });
+
+  it("prefers final payload message over streamed text", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: "Streamed partial",
+      chatStreamStartedAt: 100,
+    });
+    const finalMsg = {
+      role: "assistant",
+      content: [{ type: "text", text: "Complete reply" }],
+      timestamp: 101,
+    };
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "final",
+      message: finalMsg,
+    };
+    expect(handleChatGatewayEvent(state, payload)).toBe("final");
+    expect(state.chatMessages).toEqual([finalMsg]);
+    expect(state.chatStream).toBe(null);
+  });
+
+  it("keeps repeated assistant final text from a later turn", () => {
+    const firstUser = {
+      role: "user",
+      content: [{ type: "text", text: "first" }],
+      timestamp: 1,
+    };
+    const firstAssistant = {
+      role: "assistant",
+      content: [{ type: "text", text: "OK" }],
+      timestamp: 2,
+    };
+    const secondUser = {
+      role: "user",
+      content: [{ type: "text", text: "second" }],
+      timestamp: 3,
+    };
+    const secondAssistant = {
+      role: "assistant",
+      content: [{ type: "text", text: "OK" }],
+      timestamp: 4,
+    };
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-2",
+      chatMessages: [firstUser, firstAssistant, secondUser],
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-2",
+      sessionKey: "main",
+      state: "final",
+      message: secondAssistant,
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("final");
+    expect(state.chatMessages).toEqual([firstUser, firstAssistant, secondUser, secondAssistant]);
+  });
+
+  it("keeps repeated assistant final text within the same turn", () => {
+    const user = {
+      role: "user",
+      content: [{ type: "text", text: "repeat" }],
+      timestamp: 1,
+    };
+    const firstAssistant = {
+      role: "assistant",
+      content: [{ type: "text", text: "OK" }],
+      timestamp: 2,
+    };
+    const secondAssistant = {
+      role: "assistant",
+      content: [
+        { type: "text", text: "OK" },
+        { type: "canvas", url: "/__openclaw__/canvas/documents/repeat/index.html" },
+      ],
+      timestamp: 3,
+    };
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatMessages: [user, firstAssistant],
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "final",
+      message: secondAssistant,
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("final");
+    expect(state.chatMessages).toEqual([user, firstAssistant, secondAssistant]);
+  });
+
+  it("appends final payload message from own run before clearing stream state", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: "Reply",
+      chatStreamStartedAt: 100,
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "final",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "Reply" }],
+        timestamp: 101,
+      },
+    };
+    const assignments = trackChatMessagesAssignments(state);
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("final");
+    expect(assignments).toMatchObject([{ chatRunId: "run-1", chatStream: "Reply" }]);
+    expect(state.chatMessages).toEqual([payload.message]);
+    expect(state.chatRunId).toBe(null);
+    expect(state.chatStream).toBe(null);
+    expect(state.chatStreamStartedAt).toBe(null);
+  });
+
+  it("keeps pre-final stream segments when final payload is renderable", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: null,
+      chatStreamStartedAt: null,
+    }) as ChatState & { chatStreamSegments: Array<{ text: string; ts: number }> };
+    state.chatStreamSegments = [{ text: "before tool", ts: 1 }];
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "final",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "source reply final" }],
+        timestamp: 101,
+      },
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("final");
+    expect(state.chatMessages).toHaveLength(2);
+    expectTextChatMessage(state.chatMessages[0], "assistant", "before tool");
+    expect(state.chatMessages[1]).toEqual(payload.message);
+    expect(state.chatRunId).toBe(null);
+    expect(state.chatStream).toBe(null);
+    expect(state.chatStreamSegments).toEqual([]);
+  });
+
+  it("processes aborted from own run and keeps partial assistant message", () => {
+    const existingMessage = {
+      role: "user",
+      content: [{ type: "text", text: "Hi" }],
+      timestamp: 1,
+    };
+    const partialMessage = {
+      role: "assistant",
+      content: [{ type: "text", text: "Partial reply" }],
+      timestamp: 2,
+    };
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: "Partial reply",
+      chatStreamStartedAt: 100,
+      chatMessages: [existingMessage],
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "aborted",
+      message: partialMessage,
+    };
+    const assignments = trackChatMessagesAssignments(state);
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("aborted");
+    expect(assignments.at(-1)).toMatchObject({
+      chatRunId: "run-1",
+      chatStream: "Partial reply",
+    });
+    expect(state.chatRunId).toBe(null);
+    expect(state.chatStream).toBe(null);
+    expect(state.chatStreamStartedAt).toBe(null);
+    expect(state.chatMessages).toEqual([existingMessage, partialMessage]);
+  });
+
+  it("falls back to streamed partial when aborted payload message is invalid", () => {
+    const existingMessage = {
+      role: "user",
+      content: [{ type: "text", text: "Hi" }],
+      timestamp: 1,
+    };
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: "Partial reply",
+      chatStreamStartedAt: 100,
+      chatMessages: [existingMessage],
+    });
+    const payload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "aborted",
+      message: "not-an-assistant-message",
+    } as unknown as ChatEventPayload;
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("aborted");
+    expect(state.chatRunId).toBe(null);
+    expect(state.chatStream).toBe(null);
+    expect(state.chatStreamStartedAt).toBe(null);
+    expect(state.chatMessages).toHaveLength(2);
+    expect(state.chatMessages[0]).toEqual(existingMessage);
+    expectTextChatMessage(state.chatMessages[1], "assistant", "Partial reply");
+  });
+
+  it("falls back to streamed partial when aborted payload has non-assistant role", () => {
+    const existingMessage = {
+      role: "user",
+      content: [{ type: "text", text: "Hi" }],
+      timestamp: 1,
+    };
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: "Partial reply",
+      chatStreamStartedAt: 100,
+      chatMessages: [existingMessage],
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "aborted",
+      message: {
+        role: "user",
+        content: [{ type: "text", text: "unexpected" }],
+      },
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("aborted");
+    expect(state.chatMessages).toHaveLength(2);
+    expectTextChatMessage(state.chatMessages[1], "assistant", "Partial reply");
+  });
+
+  it("processes aborted from own run without message and empty stream", () => {
+    const existingMessage = {
+      role: "user",
+      content: [{ type: "text", text: "Hi" }],
+      timestamp: 1,
+    };
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: "",
+      chatStreamStartedAt: 100,
+      chatMessages: [existingMessage],
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "aborted",
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("aborted");
+    expect(state.chatRunId).toBe(null);
+    expect(state.chatStream).toBe(null);
+    expect(state.chatStreamStartedAt).toBe(null);
+    expect(state.chatMessages).toEqual([existingMessage]);
+  });
+
+  it("appends visible assistant text for error events with an error message", () => {
+    const existingMessage = {
+      role: "user",
+      content: [{ type: "text", text: "Ping" }],
+      timestamp: 1,
+    };
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatMessages: [existingMessage],
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "error",
+      errorMessage: 'No API key found for provider "openai".',
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("error");
+    expect(state.chatRunId).toBe(null);
+    expect(state.chatMessages).toHaveLength(2);
+    expectTextChatMessage(
+      state.chatMessages[1],
+      "assistant",
+      'Error: No API key found for provider "openai".',
+    );
+    expect(state.lastError).toBe('No API key found for provider "openai".');
+  });
+
+  it("keeps streamed assistant text visible when an error ends the run", () => {
+    const existingMessage = {
+      role: "user",
+      content: [{ type: "text", text: "Ping" }],
+      timestamp: 1,
+    };
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatMessages: [existingMessage],
+      chatStream: "Partial answer before gateway error.",
+      chatStreamStartedAt: 100,
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "error",
+      errorMessage: "gateway disconnected",
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("error");
+    expect(state.chatRunId).toBe(null);
+    expect(state.chatStream).toBe(null);
+    expect(state.chatStreamStartedAt).toBe(null);
+    expect(state.chatMessages).toHaveLength(3);
+    expect(state.chatMessages[0]).toEqual(existingMessage);
+    expectTextChatMessage(
+      state.chatMessages[1],
+      "assistant",
+      "Partial answer before gateway error.",
+    );
+    expectTextChatMessage(state.chatMessages[2], "assistant", "Error: gateway disconnected");
+    expect(state.lastError).toBe("gateway disconnected");
+  });
+
+  it("does not duplicate streamed text when the error payload already carries it", () => {
+    const message = {
+      role: "assistant",
+      content: [{ type: "text", text: "Partial answer before gateway error." }],
+      timestamp: 101,
+      metadata: { source: "gateway" },
+    };
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: "Partial answer before gateway error.",
+      chatStreamStartedAt: 100,
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "error",
+      errorMessage: "gateway disconnected",
+      message,
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("error");
+    expect(state.chatMessages).toEqual([message]);
+  });
+
+  it("does not keep partial stream when the error payload contains the fuller text", () => {
+    const message = {
+      role: "assistant",
+      content: [{ type: "text", text: "Partial answer before gateway error. Final detail." }],
+      timestamp: 101,
+    };
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: "Partial answer before gateway error.",
+      chatStreamStartedAt: 100,
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "error",
+      errorMessage: "gateway disconnected",
+      message,
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("error");
+    expect(state.chatMessages).toEqual([message]);
+  });
+
+  it("keeps stream segments visible when an error ends after a tool event", () => {
+    const existingMessage = {
+      role: "user",
+      content: [{ type: "text", text: "Ping" }],
+      timestamp: 1,
+    };
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatMessages: [existingMessage],
+      chatStream: null,
+      chatStreamStartedAt: null,
+    }) as ChatState & { chatStreamSegments: Array<{ text: string; ts: number }> };
+    state.chatStreamSegments = [{ text: "Visible text before tool.", ts: 100 }];
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "error",
+      errorMessage: "gateway disconnected",
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("error");
+    expect(state.chatMessages).toHaveLength(3);
+    expect(state.chatMessages[0]).toEqual(existingMessage);
+    expectTextChatMessage(state.chatMessages[1], "assistant", "Visible text before tool.");
+    expectTextChatMessage(state.chatMessages[2], "assistant", "Error: gateway disconnected");
+  });
+
+  it("does not treat substring matches as stream replacement", () => {
+    const message = {
+      role: "assistant",
+      content: [{ type: "text", text: "Error: provider said NOT OK yet." }],
+      timestamp: 101,
+    };
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: "OK",
+      chatStreamStartedAt: 100,
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "error",
+      errorMessage: "provider said NOT OK yet",
+      message,
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("error");
+    expect(state.chatMessages).toHaveLength(2);
+    expectTextChatMessage(state.chatMessages[0], "assistant", "OK");
+    expect(state.chatMessages[1]).toEqual(message);
+  });
+
+  it("does not duplicate post-tool stream tail when error payload has full text", () => {
+    const message = {
+      role: "assistant",
+      content: [{ type: "text", text: "First thought. After tool. Final detail." }],
+      timestamp: 101,
+    };
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: "First thought. After tool.",
+      chatStreamStartedAt: 100,
+    }) as ChatState & { chatStreamSegments: Array<{ text: string; ts: number }> };
+    state.chatStreamSegments = [{ text: "First thought.", ts: 90 }];
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "error",
+      errorMessage: "gateway disconnected",
+      message,
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("error");
+    expect(state.chatMessages).toEqual([message]);
+  });
+
+  it("prefers server-provided assistant error messages", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+    });
+    const message = {
+      role: "assistant",
+      content: [{ type: "text", text: "Configure provider auth, then try again." }],
+      timestamp: 10,
+    };
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "error",
+      errorMessage: "raw gateway error",
+      message,
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("error");
+    expect(state.chatMessages).toEqual([message]);
+    expect(state.lastError).toBe("raw gateway error");
+  });
+
+  it("does not append an orphan error bubble when no run was active", () => {
+    const existingMessage = {
+      role: "assistant",
+      content: [{ type: "text", text: "Error: request failed before start" }],
+      timestamp: 1,
+    };
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: null,
+      chatMessages: [existingMessage],
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-failed-before-start",
+      sessionKey: "main",
+      state: "error",
+      errorMessage: "request failed before start",
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("error");
+    expect(state.chatMessages).toEqual([existingMessage]);
+    expect(state.chatRunId).toBe(null);
+    expect(state.lastError).toBe("request failed before start");
+  });
+
+  it("drops NO_REPLY final payload from another run", () => {
+    const state = createActiveStreamingState();
+    const payload = createOtherRunNoReplyFinalPayload();
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("final");
+    expect(state.chatMessages).toStrictEqual([]);
+    expect(state.chatRunId).toBe("run-user");
+    expect(state.chatStream).toBe("Working...");
+  });
+
+  it("drops NO_REPLY final payload from own run", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: "NO_REPLY",
+      chatStreamStartedAt: 100,
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "final",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "NO_REPLY" }],
+      },
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("final");
+    expect(state.chatMessages).toStrictEqual([]);
+    expect(state.chatRunId).toBe(null);
+    expect(state.chatStream).toBe(null);
+  });
+
+  it.each(["no_reply", "ANNOUNCE_SKIP", "REPLY_SKIP"])(
+    "keeps plain-text %s final payload from own run",
+    (text) => {
+      const state = createState({
+        sessionKey: "main",
+        chatRunId: "run-1",
+        chatStream: text,
+        chatStreamStartedAt: 100,
+      });
+      const payload: ChatEventPayload = {
+        runId: "run-1",
+        sessionKey: "main",
+        state: "final",
+        message: {
+          role: "assistant",
+          content: [{ type: "text", text }],
+        },
+      };
+
+      expect(handleChatGatewayEvent(state, payload)).toBe("final");
+      expect(state.chatMessages).toEqual([payload.message]);
+      expect(state.chatRunId).toBe(null);
+      expect(state.chatStream).toBe(null);
+    },
+  );
+
+  it("does not persist NO_REPLY stream text on final without message", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: "NO_REPLY",
+      chatStreamStartedAt: 100,
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "final",
+    };
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("final");
+    expect(state.chatMessages).toStrictEqual([]);
+  });
+
+  it("does not persist NO_REPLY stream text on abort", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: "NO_REPLY",
+      chatStreamStartedAt: 100,
+    });
+    const payload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "aborted",
+      message: "not-an-assistant-message",
+    } as unknown as ChatEventPayload;
+
+    expect(handleChatGatewayEvent(state, payload)).toBe("aborted");
+    expect(state.chatMessages).toStrictEqual([]);
+  });
+
+  it("keeps user messages containing NO_REPLY text", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-user",
+      chatStream: "Working...",
+      chatStreamStartedAt: 123,
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-announce",
+      sessionKey: "main",
+      state: "final",
+      message: {
+        role: "user",
+        content: [{ type: "text", text: "NO_REPLY" }],
+      },
+    };
+
+    // User messages with NO_REPLY text should NOT be filtered — only assistant messages.
+    // normalizeFinalAssistantMessage returns null for user role, so this falls through.
+    expect(handleChatGatewayEvent(state, payload)).toBe("final");
+  });
+
+  it("keeps assistant message when text field has real reply but content is NO_REPLY", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: "",
+      chatStreamStartedAt: 100,
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "final",
+      message: {
+        role: "assistant",
+        text: "real reply",
+        content: "NO_REPLY",
+      },
+    };
+
+    // entry.text takes precedence — "real reply" is NOT silent, so the message is kept.
+    expect(handleChatGatewayEvent(state, payload)).toBe("final");
+    expect(state.chatMessages).toHaveLength(1);
+  });
+});
 describe("loadChatHistory filtering", () => {
   it("filters legacy silent assistant messages from history", async () => {
     const messages = [

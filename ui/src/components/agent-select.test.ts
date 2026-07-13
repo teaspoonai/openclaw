@@ -3,9 +3,11 @@
 import { expect, it, vi } from "vitest";
 import type { AgentIdentityResult, GatewayAgentRow } from "../api/types.ts";
 import { i18n, t } from "../i18n/index.ts";
-import "./agent-select.ts";
+import { AgentSelect } from "./agent-select.ts";
 
-const AGENT_SELECT_TEST_TAG = "openclaw-agent-select";
+const AGENT_SELECT_TEST_TAG = `test-openclaw-agent-select-${crypto.randomUUID()}`;
+
+customElements.define(AGENT_SELECT_TEST_TAG, class extends AgentSelect {});
 
 type AgentSelectElement = HTMLElement & {
   agents: GatewayAgentRow[];

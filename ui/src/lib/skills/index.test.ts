@@ -21,6 +21,14 @@ type SkillsState = Parameters<typeof loadSkills>[0];
 
 type TestRequest = (method: string, payload?: unknown) => Promise<unknown>;
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
 function createState(): { state: SkillsState; request: ReturnType<typeof vi.fn<TestRequest>> } {
   const request = vi.fn<TestRequest>();
   const state: SkillsState = {
@@ -564,6 +572,39 @@ describe("searchClawHub", () => {
     expect(state.clawhubSearchLoading).toBe(false);
   });
 
+  it("clears stale results as soon as a new search starts", async () => {
+    const { state, request } = createState();
+    type SearchResponse = { results: SkillsState["clawhubSearchResults"] };
+    let resolveRequest: (value: SearchResponse) => void = () => {
+      throw new Error("expected search request promise to be pending");
+    };
+    request.mockImplementation(
+      () =>
+        new Promise<SearchResponse>((resolve) => {
+          resolveRequest = resolve;
+        }),
+    );
+
+    const pending = searchClawHub(state, "github");
+    expect(state.clawhubSearchResults).toBeNull();
+    expect(state.clawhubSearchLoading).toBe(true);
+
+    resolveRequest({
+      results: [
+        {
+          score: 0.95,
+          slug: "github-new",
+          displayName: "GitHub New",
+          summary: "Fresh result",
+          version: "2.0.0",
+        },
+      ],
+    });
+    await pending;
+    expect(state.clawhubSearchResults?.[0]?.slug).toBe("github-new");
+    expect(state.clawhubSearchLoading).toBe(false);
+  });
+
   it("ignores stale search responses after query changes", async () => {
     const { state, request } = createState();
     const queue = createDeferredRequestQueue(request);
@@ -825,6 +866,46 @@ describe("skill mutations", () => {
 
     expect(request).not.toHaveBeenCalled();
     expect(state.skillEdits.github).toBe("submitted-value");
+    expect(state.skillOperation).toBeNull();
+  });
+
+  it("drops an old-client mutation continuation without releasing the current owner", async () => {
+    const { state, request: oldRequest } = createState();
+    const oldMutationResult = createDeferred<unknown>();
+    oldRequest.mockReturnValue(oldMutationResult.promise);
+
+    const oldMutation = updateSkillEnabled(state, "github", true);
+    await vi.waitFor(() => expect(oldRequest).toHaveBeenCalledOnce());
+
+    const currentMutationResult = createDeferred<unknown>();
+    const currentRequest = vi.fn<TestRequest>((method) =>
+      method === "skills.update"
+        ? currentMutationResult.promise
+        : Promise.resolve({
+            workspaceDir: "/tmp/current",
+            managedSkillsDir: "/tmp/skills",
+            skills: [],
+          }),
+    );
+    state.client = { request: currentRequest } as unknown as SkillsState["client"];
+    state.skillsAgentRevision += 1;
+    state.skillOperation = null;
+
+    const currentMutation = updateSkillEnabled(state, "calendar", true);
+    await vi.waitFor(() => expect(currentRequest).toHaveBeenCalledOnce());
+    const currentOperation = state.skillOperation;
+
+    oldMutationResult.resolve({});
+    await oldMutation;
+    expect(state.skillOperation).toBe(currentOperation);
+
+    currentMutationResult.resolve({});
+    await currentMutation;
+    expect(currentRequest.mock.calls.map(([method]) => method)).toEqual([
+      "skills.update",
+      "skills.status",
+    ]);
+    expect(state.skillsReport?.workspaceDir).toBe("/tmp/current");
     expect(state.skillOperation).toBeNull();
   });
 

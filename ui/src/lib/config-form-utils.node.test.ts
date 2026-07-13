@@ -135,7 +135,6 @@ describe("form-utils preserves numeric types", () => {
     expect(typeof (first.cost as Record<string, unknown>).input).toBe("number");
   });
 });
-
 describe("sanitizeRedactedFormForSubmit", () => {
   it("drops loaded redacted placeholders for paths missing from original raw config", () => {
     const form = {
@@ -263,7 +262,6 @@ describe("sanitizeRedactedFormForSubmit", () => {
     expect(sanitizeRedactedFormForSubmit(form, originalForm, "{")).toEqual(form);
   });
 });
-
 describe("prototype pollution prevention", () => {
   it("setPathValue rejects __proto__ in path", () => {
     const obj: Record<string, unknown> = {};

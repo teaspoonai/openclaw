@@ -95,6 +95,104 @@ describe("renderWorkspace", () => {
     expect(container.querySelector(".workspace__toast")?.textContent).toContain("move failed");
   });
 
+  it("honors workspace deep links and updates them from tab navigation", () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/plugin?plugin=workspaces&id=workspaces&ws=empty",
+    );
+    const host = document.createElement("div");
+    document.body.append(host);
+    const state = getWorkspaceState(host);
+    state.loaded = true;
+    state.workspace = doc;
+    state.activeSlug = "main";
+    const onPopState = vi.fn();
+    window.addEventListener("popstate", onPopState);
+
+    try {
+      render(renderWorkspace({ host, client: null, connected: false }), host);
+      expect(state.activeSlug).toBe("empty");
+      host.querySelector<HTMLButtonElement>('[data-ws="main"]')?.click();
+      expect(new URLSearchParams(window.location.search).get("ws")).toBe("main");
+      expect(onPopState).toHaveBeenCalledOnce();
+    } finally {
+      window.removeEventListener("popstate", onPopState);
+      stopWorkspace(host);
+      host.remove();
+    }
+  });
+
+  it("discards a stale binding result after the polling version advances", async () => {
+    vi.useFakeTimers();
+    const host = document.createElement("div");
+    document.body.append(host);
+    let resolveOld!: (value: unknown) => void;
+    let resolveFresh!: (value: unknown) => void;
+    const oldResult = new Promise((resolve) => {
+      resolveOld = resolve;
+    });
+    const freshResult = new Promise((resolve) => {
+      resolveFresh = resolve;
+    });
+    const request = vi.fn().mockReturnValueOnce(oldResult).mockReturnValueOnce(freshResult);
+    const client = {
+      request,
+      addEventListener: vi.fn(() => () => {}),
+    } as unknown as GatewayBrowserClient;
+    const state = getWorkspaceState(host);
+    state.loaded = true;
+    state.activeSlug = "main";
+    state.workspace = {
+      schemaVersion: 1,
+      workspaceVersion: 1,
+      tabs: [
+        {
+          slug: "main",
+          title: "Main",
+          hidden: false,
+          widgets: [
+            {
+              id: "cost",
+              kind: "builtin:stat-card",
+              title: "Cost",
+              grid: { x: 0, y: 0, w: 4, h: 2 },
+              collapsed: false,
+              bindings: { value: { source: "rpc", method: "usage.cost" } },
+            },
+          ],
+        },
+      ],
+      widgetsRegistry: {},
+      prefs: { tabOrder: ["main"] },
+    };
+
+    try {
+      render(renderWorkspace({ host, client, connected: true }), host);
+      expect(request).toHaveBeenCalledOnce();
+      await vi.advanceTimersByTimeAsync(60_000);
+      render(renderWorkspace({ host, client, connected: true }), host);
+      expect(request).toHaveBeenCalledTimes(2);
+
+      resolveFresh(2);
+      await freshResult;
+      await vi.waitFor(() => {
+        render(renderWorkspace({ host, client, connected: true }), host);
+        expect(host.querySelector(".workspace-stat__value")?.textContent).toBe("2");
+      });
+
+      resolveOld(1);
+      await oldResult;
+      await Promise.resolve();
+      render(renderWorkspace({ host, client, connected: true }), host);
+      expect(host.querySelector(".workspace-stat__value")?.textContent).toBe("2");
+    } finally {
+      stopWorkspace(host);
+      host.remove();
+      vi.useRealTimers();
+    }
+  });
+
   it("reloads a custom-widget frame after workspace changes and reconnects", async () => {
     const host = document.createElement("div");
     document.body.append(host);
