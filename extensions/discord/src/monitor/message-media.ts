@@ -53,7 +53,7 @@ export type DiscordMediaInfo = {
   placeholder: string;
 };
 
-export type DiscordMediaResolveOptions = {
+type DiscordMediaResolveOptions = {
   fetchImpl?: FetchLike;
   ssrfPolicy?: SsrFPolicy;
   readIdleTimeoutMs?: number;
