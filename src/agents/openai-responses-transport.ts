@@ -145,8 +145,6 @@ type OpenAIResponsesReplayContext = {
   authProfileHash?: string;
 };
 
-export { sanitizeTransportPayloadText } from "./transport-stream-shared.js";
-
 function stringifyUnknown(value: unknown, fallback = ""): string {
   if (typeof value === "string") {
     return value;
@@ -860,7 +858,7 @@ async function createResponsesStreamWithEncryptedContentRetry(params: {
   }
 }
 
-export function resolveAzureOpenAIApiVersion(env = process.env): string {
+function resolveAzureOpenAIApiVersion(env = process.env): string {
   return env.AZURE_OPENAI_API_VERSION?.trim() || DEFAULT_AZURE_OPENAI_API_VERSION;
 }
 
@@ -1934,7 +1932,7 @@ function readResponsesOutputMessageText(item: Record<string, unknown>): string {
     .join("");
 }
 
-export function resolveProviderTransportTurnState(
+function resolveProviderTransportTurnState(
   model: Model,
   params: {
     sessionId?: string;
@@ -2252,7 +2250,7 @@ function resolveOpenAIResponsesTextFormat(
   return responseFormat as unknown as ResponseFormatTextConfig;
 }
 
-export function buildOpenAIResponsesParams(
+function buildOpenAIResponsesParams(
   model: Model,
   context: Context,
   options: OpenAIResponsesOptions | undefined,
@@ -2551,7 +2549,7 @@ function buildAzureOpenAIResponsesParams(
   return params;
 }
 
-export type OpenAIResponsesRequestParams = {
+type OpenAIResponsesRequestParams = {
   model: string;
   input: ResponseInput;
   stream: true;
@@ -2575,10 +2573,10 @@ export type OpenAIResponsesRequestParams = {
       };
   include?: string[];
 };
-
 export const responsesTesting = {
   getCompat,
   assertCodeModeResponsesToolSurface,
+  buildOpenAIResponsesParams,
   buildOpenAIClientHeaders,
   buildOpenAISdkClientOptions,
   buildOpenAISdkRequestOptions,
@@ -2587,6 +2585,8 @@ export const responsesTesting = {
   enforceCodeModeResponsesToolSurface,
   sanitizeOpenAICodexResponsesParams,
   processResponsesStream,
+  resolveAzureOpenAIApiVersion,
+  sanitizeTransportPayloadText,
   formatModelTransportDebugBaseUrl,
   buildResponsesFailedNoDetailsObservation,
   buildOpenAIResponsesReasoningReplayMetadata,

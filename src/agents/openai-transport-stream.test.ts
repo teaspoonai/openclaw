@@ -11,12 +11,8 @@ import {
   formatUserFacingAssistantErrorText,
 } from "./embedded-agent-helpers.js";
 import {
-  buildOpenAIResponsesParams,
   buildOpenAICompletionsParams,
   createOpenAICompletionsTransportStreamFn,
-  parseTransportChunkUsage,
-  resolveAzureOpenAIApiVersion,
-  sanitizeTransportPayloadText,
   testing,
 } from "./openai-transport-stream.js";
 import { attachModelProviderRequestTransport } from "./provider-request-config.js";
@@ -28,6 +24,13 @@ import {
   prepareTransportAwareSimpleModel,
   resolveTransportAwareSimpleApi,
 } from "./provider-transport-stream.js";
+
+const {
+  buildOpenAIResponsesParams,
+  parseTransportChunkUsage,
+  resolveAzureOpenAIApiVersion,
+  sanitizeTransportPayloadText,
+} = testing;
 
 type OpenAICompletionsOutput = Parameters<typeof testing.processOpenAICompletionsStream>[1];
 type OpenAIResponsesOutput = Parameters<typeof testing.processResponsesStream>[1];
@@ -7661,8 +7664,8 @@ describe("openai transport stream", () => {
     }));
 
     try {
-      const { buildOpenAIResponsesParams: isolatedBuildOpenAIResponsesParams } =
-        await import("./openai-transport-stream.js");
+      const { testing: isolatedTesting } = await import("./openai-transport-stream.js");
+      const { buildOpenAIResponsesParams: isolatedBuildOpenAIResponsesParams } = isolatedTesting;
       const model = {
         id: "gpt-5.4",
         name: "GPT-5.4",

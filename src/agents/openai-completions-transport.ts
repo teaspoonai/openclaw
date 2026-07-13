@@ -1904,7 +1904,7 @@ export function buildOpenAICompletionsParams(
   return params;
 }
 
-export function parseTransportChunkUsage(
+function parseTransportChunkUsage(
   rawUsage: NonNullable<ChatCompletionChunk["usage"]> & { cost?: unknown },
   model: Model,
 ): MutableAssistantOutput["usage"] {
@@ -1937,12 +1937,12 @@ function hasOpenAICompletionsReasoningUsageActivity(
     typeof reasoningTokens === "number" && Number.isFinite(reasoningTokens) && reasoningTokens > 0
   );
 }
-
 export const completionsTesting = {
   getCompat,
   createSseDoneDetector,
   createOpenAICompletionsClient,
   buildOpenAICompletionsClientConfig,
+  parseTransportChunkUsage,
   processOpenAICompletionsStream,
   shouldEmitOpenAICompletionsReasoningForModel,
 };
