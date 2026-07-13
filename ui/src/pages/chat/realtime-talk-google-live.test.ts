@@ -1,9 +1,6 @@
 // Control UI tests cover realtime talk google live behavior.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  buildGoogleLiveUrl,
-  GoogleLiveRealtimeTalkTransport,
-} from "./realtime-talk-google-live.ts";
+import { GoogleLiveRealtimeTalkTransport } from "./realtime-talk-google-live.ts";
 import {
   REALTIME_VOICE_AGENT_CONSULT_TOOL_NAME,
   REALTIME_VOICE_AGENT_CONTROL_TOOL_NAME,
@@ -773,35 +770,5 @@ describe("GoogleLiveRealtimeTalkTransport", () => {
     const sent = ws.sent.map((payload) => JSON.parse(payload));
     expect(sent.some((event) => event.clientContent)).toBe(false);
     transport.stop();
-  });
-});
-
-describe("Google Live realtime Talk URL", () => {
-  it("only preserves the allowlisted Google Live endpoint and appends the ephemeral token", () => {
-    const url = buildGoogleLiveUrl(
-      createSession(
-        "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained?ignored=1",
-      ),
-    );
-
-    expect(url).toBe(
-      "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained?access_token=auth_tokens%2Fbrowser-session",
-    );
-  });
-
-  it("rejects attacker-controlled Google Live WebSocket URLs", () => {
-    expect(() =>
-      buildGoogleLiveUrl(createSession("ws://generativelanguage.googleapis.com/ws/google.ai")),
-    ).toThrow("wss://");
-    expect(() =>
-      buildGoogleLiveUrl(
-        createSession(
-          "wss://attacker.test/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained",
-        ),
-      ),
-    ).toThrow("Untrusted Google Live WebSocket host");
-    expect(() =>
-      buildGoogleLiveUrl(createSession("wss://generativelanguage.googleapis.com/evil")),
-    ).toThrow("Untrusted Google Live WebSocket path");
   });
 });

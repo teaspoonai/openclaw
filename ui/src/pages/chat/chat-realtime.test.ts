@@ -6,11 +6,8 @@ import {
   createInitialChatRealtimeState,
   type ChatRealtimeState,
 } from "./chat-realtime.ts";
-import {
-  RealtimeTalkSession,
-  type RealtimeTalkCallbacks,
-  type RealtimeTalkLaunchOptions,
-} from "./realtime-talk.ts";
+import type { RealtimeTalkCallbacks } from "./realtime-talk-shared.ts";
+import { RealtimeTalkSession, type RealtimeTalkLaunchOptions } from "./realtime-talk.ts";
 
 type InspectableRealtimeTalkSession = {
   callbacks: RealtimeTalkCallbacks;

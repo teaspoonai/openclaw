@@ -1,7 +1,6 @@
 import { createRouter, definePage, type Router } from "@openclaw/uirouter";
 import { html, type LitElement } from "lit";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { resetStaleChunkReloadStateForTest } from "./stale-chunk-reload.ts";
 import "./router-outlet.ts";
 
 type RouteId = "page";
@@ -48,7 +47,6 @@ async function settleOutlet(outlet: RouterOutletElement): Promise<void> {
 
 afterEach(() => {
   document.body.replaceChildren();
-  resetStaleChunkReloadStateForTest();
   vi.unstubAllGlobals();
   vi.useRealTimers();
 });

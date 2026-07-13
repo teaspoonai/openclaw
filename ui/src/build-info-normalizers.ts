@@ -11,17 +11,17 @@ function normalizeOptionalString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-export function normalizeControlUiCommit(value: unknown): string | null {
+function normalizeControlUiCommit(value: unknown): string | null {
   const commit = normalizeOptionalString(value)?.toLowerCase() ?? null;
   return commit && FULL_GIT_SHA.test(commit) ? commit : null;
 }
 
-export function normalizeControlUiBranch(value: unknown): string | null {
+function normalizeControlUiBranch(value: unknown): string | null {
   const branch = normalizeOptionalString(value);
   return branch && branch !== "HEAD" ? branch.slice(0, 100) : null;
 }
 
-export function normalizeControlUiBuildTimestamp(value: unknown): string | null {
+function normalizeControlUiBuildTimestamp(value: unknown): string | null {
   const timestamp = normalizeOptionalString(value);
   if (!timestamp || !UTC_BUILD_TIMESTAMP.test(timestamp)) {
     return null;
@@ -36,14 +36,30 @@ export function normalizeControlUiBuildTimestamp(value: unknown): string | null 
   return date.toISOString() === canonicalInput ? date.toISOString() : null;
 }
 
-export function normalizeControlUiBuildId(value: unknown): string {
+function normalizeControlUiBuildId(value: unknown): string {
   const normalized = normalizeOptionalString(value)?.replace(/[^a-zA-Z0-9._-]+/g, "-");
   return normalized?.slice(0, BUILD_ID_MAX_LENGTH) || "dev";
 }
 
-export function deriveControlUiBuildId(info: ControlUiBuildMetadata): string {
+function deriveControlUiBuildId(info: ControlUiBuildMetadata): string {
   const identity = [info.version, info.commit?.slice(0, 12), info.builtAt]
     .filter((value): value is string => Boolean(value))
     .join("-");
   return normalizeControlUiBuildId(identity);
+}
+
+export function normalizeControlUiBuildInfo(value: unknown): ControlUiBuildInfo {
+  const record = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const optionalString = (candidate: unknown) =>
+    typeof candidate === "string" && candidate.trim() ? candidate.trim() : null;
+  const version = optionalString(record.version);
+  const commit = normalizeControlUiCommit(record.commit);
+  const builtAt = normalizeControlUiBuildTimestamp(record.builtAt);
+  const metadata = { version, commit, builtAt };
+  return {
+    ...metadata,
+    branch: normalizeControlUiBranch(record.branch),
+    dirty: typeof record.dirty === "boolean" ? record.dirty : null,
+    buildId: normalizeControlUiBuildId(record.buildId ?? deriveControlUiBuildId(metadata)),
+  };
 }

@@ -6,11 +6,7 @@ import {
   getSlashCommandDescription,
   type SlashCommandDef,
 } from "../../lib/chat/commands.ts";
-import { refreshSlashCommands, resetChatSlashCommandMetadataForTest } from "./chat-commands.ts";
-
-afterEach(() => {
-  resetChatSlashCommandMetadataForTest();
-});
+import { refreshSlashCommands } from "./chat-commands.ts";
 
 function requireCommandByName(name: string): Record<string, unknown> {
   const command = SLASH_COMMANDS.find((entry) => entry.name === name);

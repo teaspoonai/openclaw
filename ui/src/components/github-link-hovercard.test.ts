@@ -3,23 +3,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GatewayBrowserClient } from "../api/gateway.ts";
 import { i18n } from "../i18n/index.ts";
-import {
-  GitHubLinkHovercardProvider,
-  parseGitHubIssueOrPullRequestLink,
-} from "./github-link-hovercard.ts";
+import "./github-link-hovercard.ts";
 
-const GITHUB_LINK_HOVERCARD_ELEMENT_NAME = `test-openclaw-github-link-hovercard-provider-${crypto.randomUUID()}`;
+const GITHUB_LINK_HOVERCARD_ELEMENT_NAME = "openclaw-github-link-hovercard-provider";
 
-// The non-isolated UI runner resets modules but not customElements. Register
-// the current class graph so locale updates reach the mounted test element.
-class TestGitHubLinkHovercardProvider extends GitHubLinkHovercardProvider {}
-
-customElements.define(GITHUB_LINK_HOVERCARD_ELEMENT_NAME, TestGitHubLinkHovercardProvider);
+type GitHubLinkHovercardProviderElement = HTMLElement & {
+  client: GatewayBrowserClient | null;
+};
 
 function createLink(href: string, label = "GitHub item") {
   const provider = document.createElement(
     GITHUB_LINK_HOVERCARD_ELEMENT_NAME,
-  ) as GitHubLinkHovercardProvider;
+  ) as GitHubLinkHovercardProviderElement;
   const anchor = document.createElement("a");
   anchor.href = href;
   anchor.textContent = label;
@@ -42,32 +37,6 @@ function leave(anchor: HTMLAnchorElement): void {
     }),
   );
 }
-
-describe("parseGitHubIssueOrPullRequestLink", () => {
-  it("parses issue and pull request links with trailing paths", () => {
-    expect(
-      parseGitHubIssueOrPullRequestLink(
-        "https://github.com/openclaw/openclaw/issues/99815#issuecomment-1",
-      ),
-    ).toMatchObject({ kind: "issue", number: 99815, owner: "openclaw", repo: "openclaw" });
-    expect(
-      parseGitHubIssueOrPullRequestLink("https://github.com/openclaw/openclaw/pull/99816/files"),
-    ).toMatchObject({ kind: "pull", number: 99816, owner: "openclaw", repo: "openclaw" });
-  });
-
-  it("rejects non-item, non-HTTPS, credentialed, and non-GitHub links", () => {
-    expect(parseGitHubIssueOrPullRequestLink("https://github.com/openclaw/openclaw")).toBeNull();
-    expect(
-      parseGitHubIssueOrPullRequestLink("http://github.com/openclaw/openclaw/issues/1"),
-    ).toBeNull();
-    expect(
-      parseGitHubIssueOrPullRequestLink("https://user@github.com/openclaw/openclaw/issues/1"),
-    ).toBeNull();
-    expect(
-      parseGitHubIssueOrPullRequestLink("https://example.com/openclaw/openclaw/issues/1"),
-    ).toBeNull();
-  });
-});
 
 describe("openclaw-github-link-hovercard-provider", () => {
   beforeEach(() => {

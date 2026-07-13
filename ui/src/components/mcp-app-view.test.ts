@@ -25,7 +25,10 @@ describe("mcp-app-view localization", () => {
     });
     await i18n.setLocale("pt-BR");
 
-    const view = document.createElement(MCP_APP_VIEW_ELEMENT_NAME) as McpAppView;
+    const view = document.createElement("mcp-app-view") as HTMLElement & {
+      sessionKey: string;
+      viewId: string;
+    };
     view.sessionKey = "agent:main:main";
     view.viewId = "view-1";
     document.body.append(view);

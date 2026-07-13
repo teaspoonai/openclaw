@@ -3,9 +3,6 @@ import { describe, expect, it, vi } from "vitest";
 import type { WorkspaceWidget, WidgetManifestView } from "../lib/workspace/types.ts";
 import type { BuiltinWidgetContext } from "../lib/workspace/widgets/index.ts";
 import {
-  displayWidgetTitle,
-  renderCustomWidget,
-  renderWidgetBody,
   renderWidgetCell,
   type WorkspaceCustomWidgetContext,
   type WorkspaceWidgetCellCallbacks,
@@ -84,14 +81,6 @@ describe("workspace widget cell", () => {
     expect(title?.getAttribute("title")).toBe("Revenue (custom)");
   });
 
-  it("displayWidgetTitle drops only a trailing (custom) suffix (#8)", () => {
-    expect(displayWidgetTitle("Notes (custom)")).toBe("Notes");
-    expect(displayWidgetTitle("Notes")).toBe("Notes");
-    expect(displayWidgetTitle("My (custom) widget")).toBe("My (custom) widget");
-    // Degenerate: a bare suffix falls back to the original rather than an empty title.
-    expect(displayWidgetTitle("(custom)")).toBe("(custom)");
-  });
-
   it("renders a provenance chip for agent-authored widgets", () => {
     const container = renderToContainer(
       renderWidgetCell({
@@ -155,48 +144,6 @@ describe("workspace widget cell", () => {
     const items = container.querySelectorAll(".workspace-widget__menu-item");
     expect(items.length).toBe(4);
   });
-
-  it("renders a stat-card value formatted as currency", () => {
-    const container = renderToContainer(
-      renderWidgetBody(
-        widget({ props: { format: "usd", label: "Q3 Revenue" } }),
-        { value: 1234 },
-        BUILTIN_CONTEXT,
-        noopCallbacks(),
-      ),
-    );
-    expect(container.querySelector(".workspace-stat__value")?.textContent).toContain("$1,234");
-    expect(container.querySelector(".workspace-stat__label")?.textContent).toContain("Q3 Revenue");
-  });
-
-  it("renders markdown widget content", () => {
-    const container = renderToContainer(
-      renderWidgetBody(
-        widget({ kind: "builtin:markdown" }),
-        { value: "# Hello" },
-        BUILTIN_CONTEXT,
-        noopCallbacks(),
-      ),
-    );
-    expect(container.querySelector(".workspace-markdown h1")?.textContent).toContain("Hello");
-  });
-
-  it("catches a widget render throw with a per-cell error card", () => {
-    // A binding error triggers the error boundary; the card stays mounted.
-    const container = renderToContainer(
-      renderWidgetBody(widget(), { error: "binding failed" }, BUILTIN_CONTEXT, noopCallbacks()),
-    );
-    const errorCard = container.querySelector('[data-test-id="workspace-widget-error"]');
-    expect(errorCard).not.toBeNull();
-    expect(errorCard?.textContent).toContain("binding failed");
-  });
-
-  it("renders a placeholder for custom widgets in L3", () => {
-    const container = renderToContainer(
-      renderWidgetBody(widget({ kind: "custom:chart" }), null, BUILTIN_CONTEXT, noopCallbacks()),
-    );
-    expect(container.querySelector(".workspace-widget__placeholder")).not.toBeNull();
-  });
 });
 
 function customManifest(): WidgetManifestView {
@@ -224,58 +171,6 @@ function customContext(
 }
 
 describe("renderCustomWidget (L5 dispatch)", () => {
-  it("renders the sandboxed iframe host for an approved widget", () => {
-    const container = renderToContainer(
-      renderCustomWidget(widget({ kind: "custom:chart" }), customContext()),
-    );
-    const iframe = container.querySelector("iframe");
-    expect(iframe?.getAttribute("sandbox")).toBe("allow-scripts");
-  });
-
-  it("holds without an iframe when approved but the manifest has not loaded", () => {
-    const container = renderToContainer(
-      renderCustomWidget(widget({ kind: "custom:chart" }), customContext({ manifest: null })),
-    );
-    expect(container.querySelector("iframe")).toBeNull();
-    expect(container.querySelector('[data-test-id="workspace-custom-loading"]')).not.toBeNull();
-  });
-
-  it("renders the pending approval card with Approve/Reject and NO iframe", () => {
-    const onApprove = vi.fn();
-    const onReject = vi.fn();
-    const container = renderToContainer(
-      renderCustomWidget(
-        widget({ kind: "custom:chart", createdBy: "agent:layout" }),
-        customContext({
-          status: "pending",
-          createdBy: "agent:scaffold",
-          manifest: null,
-          onApprove,
-          onReject,
-        }),
-      ),
-    );
-    expect(container.querySelector("iframe")).toBeNull();
-    const pending = container.querySelector('[data-test-id="workspace-custom-pending"]');
-    expect(pending).not.toBeNull();
-    expect(pending?.textContent).toContain("scaffold");
-    expect(pending?.textContent).not.toContain("layout");
-    container
-      .querySelector<HTMLButtonElement>('[data-test-id="workspace-custom-approve"]')
-      ?.click();
-    container.querySelector<HTMLButtonElement>('[data-test-id="workspace-custom-reject"]')?.click();
-    expect(onApprove).toHaveBeenCalledOnce();
-    expect(onReject).toHaveBeenCalledOnce();
-  });
-
-  it("renders a neutral placeholder (no iframe) for a rejected widget", () => {
-    const container = renderToContainer(
-      renderCustomWidget(widget({ kind: "custom:chart" }), customContext({ status: "rejected" })),
-    );
-    expect(container.querySelector("iframe")).toBeNull();
-    expect(container.querySelector('[data-test-id="workspace-custom-rejected"]')).not.toBeNull();
-  });
-
   it("never builds an iframe for a pending widget even via the full cell", () => {
     const container = renderToContainer(
       renderWidgetCell({

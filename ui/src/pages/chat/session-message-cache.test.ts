@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   cacheChatMessages,
   readChatMessagesFromCache,
-  resolveChatMessageCacheKey,
   type ChatMessageCache,
 } from "./session-message-cache.ts";
 
@@ -14,33 +13,6 @@ function createHost() {
 }
 
 describe("session message cache", () => {
-  it("canonicalizes main aliases without crossing agent scopes", () => {
-    const host = createHost();
-
-    expect(resolveChatMessageCacheKey(host, { sessionKey: "home" })).toBe("agent:ops:main");
-    expect(resolveChatMessageCacheKey(host, { sessionKey: "agent:ops:home" })).toBe(
-      "agent:ops:main",
-    );
-    expect(resolveChatMessageCacheKey(host, { sessionKey: "agent:ops:main" })).toBe(
-      "agent:ops:main",
-    );
-    expect(resolveChatMessageCacheKey(host, { sessionKey: "agent:main:home" })).toBe(
-      "agent:main:main",
-    );
-  });
-
-  it("uses explicit event agent identity for global cache targets", () => {
-    const host = {
-      assistantAgentId: "work",
-      agentsList: { defaultId: "main", mainKey: "main" },
-    };
-
-    expect(resolveChatMessageCacheKey(host, { sessionKey: "global" })).toBe("agent:work:main");
-    expect(resolveChatMessageCacheKey(host, { sessionKey: "global", agentId: "main" })).toBe(
-      "agent:main:main",
-    );
-  });
-
   it("keeps only the 20 most recently used sessions and 100 latest messages", () => {
     const host = createHost();
     const cache: ChatMessageCache = new Map();

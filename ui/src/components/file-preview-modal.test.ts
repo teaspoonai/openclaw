@@ -2,17 +2,19 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { i18n } from "../i18n/index.ts";
-import { OpenClawFilePreviewModal } from "./file-preview-modal.ts";
+import "./file-preview-modal.ts";
+
+type FilePreviewModalElement = HTMLElement & {
+  files: typeof files;
+  activePath: string;
+  query: string;
+  contextLabel: string;
+  updateComplete: Promise<boolean>;
+};
 
 let container: HTMLDivElement;
 
-const FILE_PREVIEW_MODAL_ELEMENT_NAME = `test-openclaw-file-preview-modal-${crypto.randomUUID()}`;
-
-// The non-isolated UI runner resets modules but not customElements. Register
-// the current class graph so locale updates reach the mounted test element.
-class TestFilePreviewModal extends OpenClawFilePreviewModal {}
-
-customElements.define(FILE_PREVIEW_MODAL_ELEMENT_NAME, TestFilePreviewModal);
+const FILE_PREVIEW_MODAL_ELEMENT_NAME = "openclaw-file-preview-modal";
 
 const files = [
   {
@@ -37,7 +39,7 @@ async function renderPreview(options: RenderPreviewOptions = {}) {
   const query = options.query ?? "";
   const activePath = options.activePath ?? "templates/digest.md";
   const previewFiles = options.previewFiles ?? files;
-  const modal = document.createElement(FILE_PREVIEW_MODAL_ELEMENT_NAME) as OpenClawFilePreviewModal;
+  const modal = document.createElement(FILE_PREVIEW_MODAL_ELEMENT_NAME) as FilePreviewModalElement;
   modal.files = previewFiles;
   modal.activePath = activePath;
   modal.query = query;
@@ -49,7 +51,7 @@ async function renderPreview(options: RenderPreviewOptions = {}) {
   return modal;
 }
 
-function shadowText(modal: OpenClawFilePreviewModal): string {
+function shadowText(modal: FilePreviewModalElement): string {
   return modal.shadowRoot?.textContent ?? "";
 }
 

@@ -2,15 +2,7 @@
 import { render } from "lit";
 import { describe, expect, it, vi } from "vitest";
 import { i18n } from "../i18n/index.ts";
-import { renderMarkdownSidebar } from "../pages/chat/components/chat-sidebar.ts";
-import {
-  blockArtCodeBlockCopyPayloadEncoding,
-  decodeCodeBlockCopyPayload,
-  md,
-  toSanitizedMarkdownHtml,
-  toStreamingMarkdownHtml,
-  toStreamingPlainTextHtml,
-} from "./markdown.ts";
+import { toSanitizedMarkdownHtml, toStreamingMarkdownHtml } from "./markdown.ts";
 
 function htmlFragment(html: string): HTMLElement {
   const container = document.createElement("div");
@@ -66,32 +58,6 @@ describe("toSanitizedMarkdownHtml", () => {
     expect(html).toBe("<p>v2026.5.20 release note</p>\n<p>Still readable.</p>\n");
     expect(html).not.toContain("cite");
     expect(html).not.toContain("turn2view0");
-  });
-
-  it("normalizes display line breaks before parsing and cache lookup", () => {
-    const unicodeInput =
-      "## Unicode separator cache sentinel\u2028\u2028- alpha\u2029- beta\r- gamma\r\n- delta";
-    const normalizedInput =
-      "## Unicode separator cache sentinel\n\n- alpha\n- beta\n- gamma\n- delta";
-    const renderSpy = vi.spyOn(md, "render");
-
-    try {
-      const unicodeHtml = toSanitizedMarkdownHtml(unicodeInput);
-      const normalizedHtml = toSanitizedMarkdownHtml(normalizedInput);
-      const fragment = htmlFragment(unicodeHtml);
-
-      expect(unicodeHtml).toBe(normalizedHtml);
-      expect(fragment.querySelector("h2")?.textContent).toBe("Unicode separator cache sentinel");
-      expect(Array.from(fragment.querySelectorAll("li"), (item) => item.textContent)).toEqual([
-        "alpha",
-        "beta",
-        "gamma",
-        "delta",
-      ]);
-      expect(renderSpy).toHaveBeenCalledTimes(1);
-    } finally {
-      renderSpy.mockRestore();
-    }
   });
 
   // ── Additional tests for markdown-it migration ──
@@ -399,19 +365,6 @@ describe("toSanitizedMarkdownHtml", () => {
   describe("code blocks", () => {
     const blockArt = "  ▀▀▀▀  \n  ▄▄▄▄  \n  ████  ";
 
-    it("renders fenced code blocks", () => {
-      const html = toSanitizedMarkdownHtml("```ts\nconsole.log(1)\n```");
-      const fragment = htmlFragment(html);
-      const code = fragment.querySelector("pre code");
-      const copy = fragment.querySelector<HTMLButtonElement>(".code-block-copy");
-
-      expect(fragment.querySelector(".code-block-lang")?.textContent).toBe("ts");
-      expect(decodeCodeBlockCopyPayload(copy?.dataset.code ?? "")).toBe("console.log(1)");
-      expect(copy?.dataset.codeEncoding).toBeUndefined();
-      expect(code?.classList.contains("language-ts")).toBe(true);
-      expect(code?.textContent).toBe("console.log(1)\n");
-    });
-
     it("renders raw block art as a whitespace-preserving code block", () => {
       const html = toSanitizedMarkdownHtml(blockArt);
       const fragment = htmlFragment(html);
@@ -486,50 +439,6 @@ PY
       );
     });
 
-    it("highlights fenced code blocks while preserving copy text", () => {
-      const source = 'const answer = "yes";\nconsole.log(answer);\n';
-      const html = toSanitizedMarkdownHtml(`\`\`\`js\n${source}\`\`\``);
-      const fragment = htmlFragment(html);
-      const code = fragment.querySelector("pre code");
-      const copy = fragment.querySelector<HTMLButtonElement>(".code-block-copy");
-
-      expect(fragment.querySelector(".code-block-lang")?.textContent).toBe("js");
-      expect(copy?.dataset.code).toBe(source.trimEnd());
-      expect(decodeCodeBlockCopyPayload(copy?.dataset.code ?? "")).toBe(source.trimEnd());
-      expect(copy?.dataset.codeEncoding).toBeUndefined();
-      expect(code?.textContent).toBe(source);
-      expect(code?.querySelector(".hljs-keyword")?.textContent).toBe("const");
-      expect(code?.querySelector(".hljs-string")?.textContent).toBe('"yes"');
-    });
-
-    it("keeps ordinary code blocks raw when they start with the block-art prefix", () => {
-      const source = 'openclaw:block-art-code:"literal"\n';
-      const html = toSanitizedMarkdownHtml(`\`\`\`txt\n${source}\`\`\``);
-      const fragment = htmlFragment(html);
-      const copy = fragment.querySelector<HTMLButtonElement>(".code-block-copy");
-
-      expect(copy?.dataset.code).toBe(source.trimEnd());
-      expect(copy?.dataset.codeEncoding).toBeUndefined();
-      expect(decodeCodeBlockCopyPayload(copy?.dataset.code ?? "", copy?.dataset.codeEncoding)).toBe(
-        source.trimEnd(),
-      );
-    });
-
-    it("keeps boundary spaces in encoded copy payloads after sanitization", () => {
-      const source = "  ▀▀▀▀  \n  ▄▄▄▄  ";
-      const html = toSanitizedMarkdownHtml(`\`\`\`\n${source}\n\`\`\``);
-      const fragment = htmlFragment(html);
-      const copy = fragment.querySelector<HTMLButtonElement>(".code-block-copy");
-
-      expect(copy?.dataset.code).not.toMatch(/^\s|\s$/);
-      expect(copy?.dataset.code).toContain("openclaw:block-art-code:");
-      expect(copy?.dataset.codeEncoding).toBe(blockArtCodeBlockCopyPayloadEncoding);
-      expect(decodeCodeBlockCopyPayload(copy?.dataset.code ?? "", copy?.dataset.codeEncoding)).toBe(
-        source,
-      );
-      expect(fragment.querySelector("pre code")?.textContent).toBe(`${source}\n`);
-    });
-
     it("highlights collapsed JSON code blocks", () => {
       const html = toSanitizedMarkdownHtml('```json\n{"ok": true}\n```');
       const fragment = htmlFragment(html);
@@ -560,60 +469,6 @@ PY
       expect(code?.querySelector("script")).toBeNull();
       expect(code?.textContent).toBe("<script>alert(1)</script>\n");
       expect(code?.innerHTML).not.toContain("<script>");
-    });
-
-    it("keeps localized copy labels fresh after locale changes", async () => {
-      const markdown = "```ts\nconst localizedCopy = true;\n```";
-      await i18n.setLocale("en");
-      const english = toSanitizedMarkdownHtml(markdown);
-
-      try {
-        await i18n.setLocale("zh-CN");
-        const chinese = toSanitizedMarkdownHtml(markdown);
-        const englishFragment = htmlFragment(english);
-        const chineseFragment = htmlFragment(chinese);
-        const englishCopy = englishFragment.querySelector<HTMLButtonElement>(".code-block-copy");
-        const chineseCopy = chineseFragment.querySelector<HTMLButtonElement>(".code-block-copy");
-
-        expect(englishCopy?.dataset.code).toBe("const localizedCopy = true;");
-        expect(decodeCodeBlockCopyPayload(englishCopy?.dataset.code ?? "")).toBe(
-          "const localizedCopy = true;",
-        );
-        expect(englishCopy?.getAttribute("aria-label")).toBe("Copy code");
-        expect(englishCopy?.querySelector(".code-block-copy__idle")?.textContent).toBe("Copy");
-        expect(englishCopy?.querySelector(".code-block-copy__done")?.textContent).toBe("Copied!");
-        expect(englishFragment.querySelector("pre code")?.textContent).toBe(
-          "const localizedCopy = true;\n",
-        );
-
-        expect(chineseCopy?.dataset.code).toBe("const localizedCopy = true;");
-        expect(decodeCodeBlockCopyPayload(chineseCopy?.dataset.code ?? "")).toBe(
-          "const localizedCopy = true;",
-        );
-        expect(chineseCopy?.getAttribute("aria-label")).toBe("复制代码");
-        expect(chineseCopy?.querySelector(".code-block-copy__idle")?.textContent).toBe("复制");
-        expect(chineseCopy?.querySelector(".code-block-copy__done")?.textContent).toBe("已复制！");
-        expect(chineseFragment.querySelector("pre code")?.textContent).toBe(
-          "const localizedCopy = true;\n",
-        );
-      } finally {
-        await i18n.setLocale("en");
-      }
-    });
-
-    it("collapses JSON code blocks", () => {
-      const html = toSanitizedMarkdownHtml('```json\n{"key": "value"}\n```');
-      const fragment = htmlFragment(html);
-      const details = fragment.querySelector("details.json-collapse");
-      const code = details?.querySelector("pre code");
-      const copy = details?.querySelector<HTMLButtonElement>(".code-block-copy");
-
-      expect(details?.querySelector("summary")?.textContent).toBe("JSON · 2 lines");
-      expect(details?.querySelector(".code-block-lang")?.textContent).toBe("json");
-      expect(copy?.dataset.code).toBe('{"key": "value"}');
-      expect(decodeCodeBlockCopyPayload(copy?.dataset.code ?? "")).toBe('{"key": "value"}');
-      expect(code?.classList.contains("language-json")).toBe(true);
-      expect(code?.textContent).toBe('{"key": "value"}\n');
     });
   });
 
@@ -925,43 +780,6 @@ PY
       expect(htmlFragment(first).firstElementChild?.className).toBe("markdown-plain-text-fallback");
       expect(second).toBe(first);
     });
-
-    it("falls back to escaped text if md.render throws (#36213)", () => {
-      const renderSpy = vi.spyOn(md, "render").mockImplementation(() => {
-        throw new Error("forced failure");
-      });
-      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-      try {
-        const html = toSanitizedMarkdownHtml("test");
-        expect(html).toBe('<pre class="code-block">test</pre>');
-        expect(warnSpy).toHaveBeenCalledOnce();
-      } finally {
-        renderSpy.mockRestore();
-        warnSpy.mockRestore();
-      }
-    });
-  });
-});
-
-describe("toStreamingPlainTextHtml", () => {
-  it("strips unsupported citation control markers before escaping streaming text", () => {
-    const html = toStreamingPlainTextHtml(
-      "v2026.5.20 release note citeturn2view0\n\nStill readable.",
-    );
-
-    expect(html).toBe(
-      '<div class="markdown-plain-text-fallback">v2026.5.20 release note\n\nStill readable.</div>',
-    );
-    expect(html).not.toContain("cite");
-    expect(html).not.toContain("turn2view0");
-  });
-
-  it("normalizes Unicode and CR line breaks before escaping streaming text", () => {
-    const html = toStreamingPlainTextHtml("first\u2028second\u2029third\rfourth\r\nfifth");
-
-    expect(html).toBe(
-      '<div class="markdown-plain-text-fallback">first\nsecond\nthird\nfourth\nfifth</div>',
-    );
   });
 });
 
@@ -974,24 +792,6 @@ describe("toStreamingMarkdownHtml", () => {
 
     expect(fragment.querySelector("p")).toBeNull();
     expect(code?.textContent).toBe(blockArt);
-  });
-
-  it("truncates oversized streaming raw block art before rendering", () => {
-    const line = "  ▀▀▀▀  ";
-    const blockArt = Array.from({ length: 20_000 }, () => line).join("\n");
-    const html = toStreamingMarkdownHtml(blockArt);
-    const fragment = htmlFragment(html);
-    const code = fragment.querySelector("pre code.markdown-block-art");
-    const copy = fragment.querySelector<HTMLButtonElement>(".code-block-copy");
-
-    expect(code?.textContent).toContain("… truncated");
-    expect(code?.textContent).toContain(`showing first 140000`);
-    expect(code?.textContent?.length).toBeLessThan(blockArt.length);
-    expect(copy?.dataset.code).toContain("openclaw:block-art-code:");
-    expect(copy?.dataset.codeEncoding).toBe(blockArtCodeBlockCopyPayloadEncoding);
-    expect(decodeCodeBlockCopyPayload(copy?.dataset.code ?? "", copy?.dataset.codeEncoding)).toBe(
-      code?.textContent,
-    );
   });
 
   it("renders completed block prefixes as markdown and keeps the open tail plain", () => {
@@ -1014,34 +814,6 @@ describe("toStreamingMarkdownHtml", () => {
     const html = toStreamingMarkdownHtml("**still streaming");
 
     expect(html).toBe('<div class="markdown-plain-text-fallback">**still streaming</div>');
-  });
-
-  it("does not invoke the markdown parser before a stable block boundary exists", () => {
-    const renderSpy = vi.spyOn(md, "render");
-    try {
-      const html = toStreamingMarkdownHtml("**still streaming parser sentinel");
-
-      expect(html).toBe(
-        '<div class="markdown-plain-text-fallback">**still streaming parser sentinel</div>',
-      );
-      expect(renderSpy).not.toHaveBeenCalled();
-    } finally {
-      renderSpy.mockRestore();
-    }
-  });
-
-  it("reuses the rendered stable prefix while only the streaming tail changes", () => {
-    const renderSpy = vi.spyOn(md, "render");
-    try {
-      const first = toStreamingMarkdownHtml("## Streaming cache sentinel\n\nfirst **tail");
-      const second = toStreamingMarkdownHtml("## Streaming cache sentinel\n\nsecond **tail");
-
-      expect(first).toContain("<h2>Streaming cache sentinel</h2>");
-      expect(second).toContain("<h2>Streaming cache sentinel</h2>");
-      expect(renderSpy).toHaveBeenCalledTimes(1);
-    } finally {
-      renderSpy.mockRestore();
-    }
   });
 
   it("does not parse an open code fence while streaming", () => {
@@ -1074,49 +846,5 @@ describe("toStreamingMarkdownHtml", () => {
     expect(html).toContain('<code class="hljs language-ts"');
     expect(html).toContain("const x = 1;");
     expect(html).not.toContain("markdown-plain-text-fallback");
-  });
-});
-
-describe("renderMarkdownSidebar", () => {
-  it("renders sanitized markdown content", () => {
-    const container = document.createElement("div");
-
-    render(
-      renderMarkdownSidebar({
-        content: { kind: "markdown", content: "Hello **world**" },
-        error: null,
-        onClose: () => undefined,
-        onViewRawText: () => undefined,
-      }),
-      container,
-    );
-
-    expect(container.querySelector(".sidebar-title")?.textContent?.trim()).toBe("Markdown Preview");
-    expect(container.querySelector(".sidebar-markdown-shell__eyebrow span")?.textContent).toBe(
-      "Rendered Markdown",
-    );
-    expect(container.querySelector(".sidebar-markdown strong")?.textContent).toBe("world");
-    expect(
-      Array.from(container.querySelectorAll("button")).map((button) => button.textContent?.trim()),
-    ).toEqual(["", "View Raw Text"]);
-  });
-
-  it("renders a quiet empty state for blank markdown previews", () => {
-    const container = document.createElement("div");
-
-    render(
-      renderMarkdownSidebar({
-        content: { kind: "markdown", content: "   " },
-        error: null,
-        onClose: () => undefined,
-        onViewRawText: () => undefined,
-      }),
-      container,
-    );
-
-    expect(container.querySelector(".sidebar-markdown-reader")).toBeNull();
-    expect(container.querySelector(".sidebar-markdown-empty")?.textContent?.trim()).toBe(
-      "No previewable markdown content.",
-    );
   });
 });

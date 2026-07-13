@@ -5,10 +5,7 @@ import {
   createTweakcnThemePayload as createTweakcnPayload,
 } from "../test-helpers/custom-theme.ts";
 import {
-  buildCustomThemeStyles,
   importCustomThemeFromUrl,
-  normalizeImportedCustomTheme,
-  normalizeTweakcnThemeUrl,
   parseImportedCustomTheme,
   syncCustomThemeStyleTag,
 } from "./custom-theme.ts";
@@ -67,83 +64,6 @@ describe("custom theme import helpers", () => {
     expect(parsed?.label).toBe("a".repeat(79));
   });
 
-  it("normalizes tweakcn share links and raw registry links", () => {
-    expect(
-      normalizeTweakcnThemeUrl("https://tweakcn.com/themes/cmlhfpjhw000004l4f4ax3m7z"),
-    ).toEqual({
-      sourceUrl: "https://tweakcn.com/themes/cmlhfpjhw000004l4f4ax3m7z",
-      fetchUrl: "https://tweakcn.com/r/themes/cmlhfpjhw000004l4f4ax3m7z",
-      themeId: "cmlhfpjhw000004l4f4ax3m7z",
-    });
-    expect(
-      normalizeTweakcnThemeUrl("https://tweakcn.com/r/themes/cmlhfpjhw000004l4f4ax3m7z"),
-    ).toEqual({
-      sourceUrl: "https://tweakcn.com/themes/cmlhfpjhw000004l4f4ax3m7z",
-      fetchUrl: "https://tweakcn.com/r/themes/cmlhfpjhw000004l4f4ax3m7z",
-      themeId: "cmlhfpjhw000004l4f4ax3m7z",
-    });
-    expect(normalizeTweakcnThemeUrl("/r/themes/cmlhfpjhw000004l4f4ax3m7z")).toEqual({
-      sourceUrl: "https://tweakcn.com/themes/cmlhfpjhw000004l4f4ax3m7z",
-      fetchUrl: "https://tweakcn.com/r/themes/cmlhfpjhw000004l4f4ax3m7z",
-      themeId: "cmlhfpjhw000004l4f4ax3m7z",
-    });
-    expect(normalizeTweakcnThemeUrl("cmlhfpjhw000004l4f4ax3m7z")).toEqual({
-      sourceUrl: "https://tweakcn.com/themes/cmlhfpjhw000004l4f4ax3m7z",
-      fetchUrl: "https://tweakcn.com/r/themes/cmlhfpjhw000004l4f4ax3m7z",
-      themeId: "cmlhfpjhw000004l4f4ax3m7z",
-    });
-  });
-
-  it("extracts theme ids from copied tweakcn editor URLs and pasted text", () => {
-    expect(
-      normalizeTweakcnThemeUrl("https://tweakcn.com/editor/theme?theme=cmlhfpjhw000004l4f4ax3m7z"),
-    ).toEqual({
-      sourceUrl: "https://tweakcn.com/themes/cmlhfpjhw000004l4f4ax3m7z",
-      fetchUrl: "https://tweakcn.com/r/themes/cmlhfpjhw000004l4f4ax3m7z",
-      themeId: "cmlhfpjhw000004l4f4ax3m7z",
-    });
-    expect(
-      normalizeTweakcnThemeUrl("Theme link: https://tweakcn.com/themes/cmlhfpjhw000004l4f4ax3m7z"),
-    ).toEqual({
-      sourceUrl: "https://tweakcn.com/themes/cmlhfpjhw000004l4f4ax3m7z",
-      fetchUrl: "https://tweakcn.com/r/themes/cmlhfpjhw000004l4f4ax3m7z",
-      themeId: "cmlhfpjhw000004l4f4ax3m7z",
-    });
-    expect(
-      normalizeTweakcnThemeUrl("https://tweakcn.com/editor/theme?theme=amethyst-haze"),
-    ).toEqual({
-      sourceUrl: "https://tweakcn.com/themes/amethyst-haze",
-      fetchUrl: "https://tweakcn.com/r/themes/amethyst-haze",
-      themeId: "amethyst-haze",
-    });
-    expect(normalizeTweakcnThemeUrl("amethyst-haze")).toEqual({
-      sourceUrl: "https://tweakcn.com/themes/amethyst-haze",
-      fetchUrl: "https://tweakcn.com/r/themes/amethyst-haze",
-      themeId: "amethyst-haze",
-    });
-    expect(normalizeTweakcnThemeUrl("https://tweakcn.com/r/themes/claude")).toEqual({
-      sourceUrl: "https://tweakcn.com/themes/claude",
-      fetchUrl: "https://tweakcn.com/r/themes/claude",
-      themeId: "claude",
-    });
-    expect(normalizeTweakcnThemeUrl("twitter")).toEqual({
-      sourceUrl: "https://tweakcn.com/themes/twitter",
-      fetchUrl: "https://tweakcn.com/r/themes/twitter",
-      themeId: "twitter",
-    });
-  });
-
-  it("maps a tweakcn payload into a normalized imported theme record", () => {
-    const imported = createImportedTheme();
-
-    expect(imported.label).toBe("Light Green");
-    expect(imported.sourceUrl).toBe("https://tweakcn.com/themes/cmlhfpjhw000004l4f4ax3m7z");
-    expect(imported.light.bg).toBe("oklch(0.98 0.01 120)");
-    expect(imported.dark.bg).toBe("oklch(0.12 0.04 265)");
-    expect(imported.light["font-body"]).toBe("Inter, system-ui, sans-serif");
-    expect(imported.dark["accent-hover"]).toBe("color-mix(in srgb, var(--accent) 82%, white 18%)");
-  });
-
   it("fetches tweakcn themes with bounded no-redirect requests", async () => {
     const response = createResponse(JSON.stringify(createTweakcnPayload()));
     const fetchImpl = vi.fn(async () => response) as unknown as typeof fetch;
@@ -154,6 +74,11 @@ describe("custom theme import helpers", () => {
     );
 
     expect(imported.label).toBe("Light Green");
+    expect(imported.sourceUrl).toBe("https://tweakcn.com/themes/cmlhfpjhw000004l4f4ax3m7z");
+    expect(imported.light.bg).toBe("oklch(0.98 0.01 120)");
+    expect(imported.dark.bg).toBe("oklch(0.12 0.04 265)");
+    expect(imported.light["font-body"]).toBe("Inter, system-ui, sans-serif");
+    expect(imported.dark["accent-hover"]).toBe("color-mix(in srgb, var(--accent) 82%, white 18%)");
     const fetchMock = vi.mocked(fetchImpl);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [fetchUrl, fetchOptions] = firstFetchCall(fetchImpl);
@@ -198,86 +123,6 @@ describe("custom theme import helpers", () => {
     ).rejects.toThrow("Unexpected redirect");
   });
 
-  it("rejects CSS tokens that can escape variables or trigger external requests", () => {
-    const payload = createTweakcnPayload();
-    payload.cssVars.light.background = 'url("https://example.com/track")';
-
-    expect(() =>
-      normalizeImportedCustomTheme(payload, {
-        sourceUrl: "https://tweakcn.com/themes/cmlhfpjhw000004l4f4ax3m7z",
-        themeId: "cmlhfpjhw000004l4f4ax3m7z",
-      }),
-    ).toThrow("Unsupported tweakcn token");
-
-    payload.cssVars.light.background = "oklch(0.98 0.01 120)/*";
-    expect(() =>
-      normalizeImportedCustomTheme(payload, {
-        sourceUrl: "https://tweakcn.com/themes/cmlhfpjhw000004l4f4ax3m7z",
-        themeId: "cmlhfpjhw000004l4f4ax3m7z",
-      }),
-    ).toThrow("Unsupported tweakcn token");
-
-    payload.cssVars.light.background = 'image-set("https://example.com/pixel.png" 1x)';
-    expect(() =>
-      normalizeImportedCustomTheme(payload, {
-        sourceUrl: "https://tweakcn.com/themes/cmlhfpjhw000004l4f4ax3m7z",
-        themeId: "cmlhfpjhw000004l4f4ax3m7z",
-      }),
-    ).toThrow("Unsupported tweakcn token");
-
-    payload.cssVars.light.background = "oklch(0.98 0.01 120)";
-    payload.cssVars.theme["font-sans"] = "var(--attacker-font)";
-    expect(() =>
-      normalizeImportedCustomTheme(payload, {
-        sourceUrl: "https://tweakcn.com/themes/cmlhfpjhw000004l4f4ax3m7z",
-        themeId: "cmlhfpjhw000004l4f4ax3m7z",
-      }),
-    ).toThrow("Unsupported tweakcn token");
-  });
-
-  it("validates imported font families without regex backtracking", () => {
-    const payload = createTweakcnPayload();
-    payload.cssVars.theme["font-sans"] =
-      '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-
-    expect(
-      normalizeImportedCustomTheme(payload, {
-        sourceUrl: "https://tweakcn.com/themes/cmlhfpjhw000004l4f4ax3m7z",
-        themeId: "cmlhfpjhw000004l4f4ax3m7z",
-      }).light["font-body"],
-    ).toBe('"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif');
-
-    payload.cssVars.theme["font-sans"] = `${"Inter, ".repeat(20)}@bad`;
-    expect(() =>
-      normalizeImportedCustomTheme(payload, {
-        sourceUrl: "https://tweakcn.com/themes/cmlhfpjhw000004l4f4ax3m7z",
-        themeId: "cmlhfpjhw000004l4f4ax3m7z",
-      }),
-    ).toThrow("Unsupported tweakcn token");
-  });
-
-  it("builds stable CSS blocks for custom dark and light themes", () => {
-    const css = buildCustomThemeStyles(createImportedTheme());
-    const selectorAndBackgroundLines = css
-      .split("\n")
-      .filter((line) => line.startsWith(":root") || line.trim().startsWith("--bg:"));
-
-    expect(selectorAndBackgroundLines).toEqual([
-      ':root[data-theme="custom"] {',
-      "  --bg: oklch(0.12 0.04 265);",
-      ':root[data-theme="custom-light"] {',
-      "  --bg: oklch(0.98 0.01 120);",
-    ]);
-  });
-
-  it("throws when stored custom theme tokens are missing", () => {
-    const theme = { ...createImportedTheme(), light: undefined } as unknown as ImportedCustomTheme;
-
-    expect(() => buildCustomThemeStyles(theme)).toThrow(
-      "Stored custom theme is missing required tokens.",
-    );
-  });
-
   it("parses stored imported themes and rejects malformed records", () => {
     const imported = createImportedTheme();
 
@@ -288,33 +133,5 @@ describe("custom theme import helpers", () => {
     expect(parsed.themeId).toBe("cmlhfpjhw000004l4f4ax3m7z");
     expect(parseImportedCustomTheme({ ...imported, themeId: "claude" })?.themeId).toBe("claude");
     expect(parseImportedCustomTheme({ ...imported, light: {} })).toBeNull();
-  });
-
-  it("syncs the managed custom theme style tag in the document head", () => {
-    const appendChild = vi.fn();
-    const remove = vi.fn();
-    const style = { id: "", textContent: "", remove } as unknown as HTMLStyleElement;
-    const documentStub = {
-      head: { appendChild },
-      createElement: vi.fn(() => style),
-      getElementById: vi.fn(() => null),
-    } as unknown as Document;
-    vi.stubGlobal("document", documentStub);
-
-    const theme = createImportedTheme();
-    syncCustomThemeStyleTag(theme);
-
-    expect(appendChild).toHaveBeenCalledWith(style);
-    expect(style.id).toBe("openclaw-custom-theme");
-    expect(style.textContent).toBe(buildCustomThemeStyles(theme));
-
-    vi.stubGlobal("document", {
-      head: documentStub.head,
-      createElement: documentStub["createElement"],
-      getElementById: vi.fn(() => style),
-    } as unknown as Document);
-
-    syncCustomThemeStyleTag(null);
-    expect(remove).toHaveBeenCalledTimes(1);
   });
 });

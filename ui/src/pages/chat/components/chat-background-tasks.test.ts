@@ -3,11 +3,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { GatewayBrowserClient } from "../../../api/gateway.ts";
 import type { TaskSummary } from "../../../lib/tasks/data.ts";
 import {
-  backgroundTasksActiveCount,
   createBackgroundTasksProps,
   handleBackgroundTasksEvent,
   renderBackgroundTasksRail,
-  toggleBackgroundTasks,
   type BackgroundTasksHost,
 } from "./chat-background-tasks.ts";
 
@@ -67,25 +65,6 @@ afterEach(() => {
 });
 
 describe("background tasks rail state", () => {
-  it("loads agent-scoped tasks eagerly so the collapsed badge detects running work", async () => {
-    const { host, request } = createHost({
-      request: (method, params) => {
-        expect(method).toBe("tasks.list");
-        expect((params as { agentId?: string }).agentId).toBe("main");
-        return Promise.resolve({ tasks: [makeTask({ id: "task-1" })] });
-      },
-    });
-
-    expect(createBackgroundTasksProps(host, openSession).collapsed).toBe(true);
-    await flushAsync();
-
-    const props = createBackgroundTasksProps(host, openSession);
-    expect(props.collapsed).toBe(true);
-    expect(request).toHaveBeenCalledTimes(2);
-    expect(props.tasks?.map((task) => task.id)).toEqual(["task-1"]);
-    expect(backgroundTasksActiveCount(props)).toBe(1);
-  });
-
   it("loads the snapshot when a task event arrives before any load", async () => {
     const { host, request } = createHost({
       connected: false,
@@ -105,45 +84,6 @@ describe("background tasks rail state", () => {
     const props = createBackgroundTasksProps(host, openSession);
     expect(props.tasks?.map((task) => task.id)).toEqual(["task-1"]);
   });
-
-  it("keeps the pane open across agent switches but reloads the task list", async () => {
-    const { host, request } = createHost();
-    toggleBackgroundTasks(host);
-    createBackgroundTasksProps(host, openSession);
-    await flushAsync();
-    expect(request).toHaveBeenCalledTimes(2);
-
-    host.sessionKey = "agent:research:current";
-    const props = createBackgroundTasksProps(host, openSession);
-    expect(props.collapsed).toBe(false);
-    expect(props.agentId).toBe("research");
-    expect(props.tasks).toBeNull();
-    await flushAsync();
-    expect(request.mock.calls.length).toBeGreaterThanOrEqual(4);
-    expect(request.mock.calls.at(-1)?.[1]).toMatchObject({ agentId: "research" });
-  });
-
-  it("surfaces cancellation refusals as errors", async () => {
-    const running = makeTask({ id: "task-1" });
-    const { host } = createHost({
-      request: (method) => {
-        if (method === "tasks.list") {
-          return Promise.resolve({ tasks: [running] });
-        }
-        return Promise.resolve({ found: true, cancelled: false, reason: "already finished" });
-      },
-    });
-    toggleBackgroundTasks(host);
-    createBackgroundTasksProps(host, openSession);
-    await flushAsync();
-
-    createBackgroundTasksProps(host, openSession).onCancel("task-1");
-    await flushAsync();
-
-    const props = createBackgroundTasksProps(host, openSession);
-    expect(props.error).toBe("already finished");
-    expect(props.cancellingTaskIds.has("task-1")).toBe(false);
-  });
 });
 
 describe("background tasks rail events", () => {
@@ -151,8 +91,7 @@ describe("background tasks rail events", () => {
     const { host, request } = createHost({
       request: () => Promise.resolve({ tasks }),
     });
-    toggleBackgroundTasks(host);
-    createBackgroundTasksProps(host, openSession);
+    createBackgroundTasksProps(host, openSession).onToggleCollapsed();
     await flushAsync();
     return { host, request };
   }

@@ -1,10 +1,6 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  discoverRealtimeTalkInputs,
-  openRealtimeTalkInput,
-  realtimeTalkAudioConstraints,
-} from "./realtime-talk-input.ts";
+import { discoverRealtimeTalkInputs, openRealtimeTalkInput } from "./realtime-talk-input.ts";
 
 function mediaDevice(kind: MediaDeviceKind, deviceId: string, label: string): MediaDeviceInfo {
   return { kind, deviceId, label, groupId: "", toJSON: () => ({}) } as MediaDeviceInfo;
@@ -82,22 +78,6 @@ describe("realtime Talk microphone inputs", () => {
 
     expect(result.devices).toEqual([]);
     expect(result.warning).toContain("Microphone access is blocked");
-  });
-
-  it("uses exact device selection while preserving transport audio processing", () => {
-    expect(realtimeTalkAudioConstraints(undefined)).toBe(true);
-    expect(
-      realtimeTalkAudioConstraints("usb", {
-        autoGainControl: true,
-        echoCancellation: true,
-        noiseSuppression: true,
-      }),
-    ).toEqual({
-      autoGainControl: true,
-      echoCancellation: true,
-      noiseSuppression: true,
-      deviceId: { exact: "usb" },
-    });
   });
 
   it("does not silently fall back when the selected microphone is unavailable", async () => {

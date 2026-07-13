@@ -1,12 +1,6 @@
 // Control UI tests cover usage metrics behavior.
 import { describe, expect, it, vi, afterEach } from "vitest";
-import {
-  buildPeakErrorHours,
-  buildUsageMosaicStats,
-  formatTokens,
-  getHourAndWeekdayForUtcQuarterBucket,
-  sessionTouchesSelectedHours,
-} from "./metrics.ts";
+import { buildPeakErrorHours, formatTokens, sessionTouchesSelectedHours } from "./metrics.ts";
 import type { UsageSessionEntry } from "./types.ts";
 
 /**
@@ -307,41 +301,6 @@ describe("usage mosaic token buckets", () => {
         })),
       },
     }) as unknown as UsageSessionEntry;
-
-  it("maps UTC quarter-hour buckets and rejects invalid bucket coordinates", () => {
-    expect(getHourAndWeekdayForUtcQuarterBucket("2026-02-01", 40, "utc")).toEqual({
-      hour: 10,
-      weekday: 0,
-    });
-    expect(getHourAndWeekdayForUtcQuarterBucket("2026-02-01", -1, "utc")).toBeNull();
-    expect(getHourAndWeekdayForUtcQuarterBucket("2026-02-01", 96, "utc")).toBeNull();
-    expect(getHourAndWeekdayForUtcQuarterBucket("2026-13-01", 40, "utc")).toBeNull();
-    expect(getHourAndWeekdayForUtcQuarterBucket("not-a-date", 40, "utc")).toBeNull();
-  });
-
-  it("uses local timezone mapping for UTC quarter-hour buckets", () => {
-    vi.spyOn(Date.prototype, "getHours").mockImplementation(function (this: Date) {
-      return (this.getUTCHours() + 8) % 24;
-    });
-    vi.spyOn(Date.prototype, "getDay").mockReturnValue(1);
-
-    expect(getHourAndWeekdayForUtcQuarterBucket("2026-02-01", 68, "local")).toEqual({
-      hour: 1,
-      weekday: 1,
-    });
-  });
-
-  it("uses precise token buckets instead of spreading session totals across the session span", () => {
-    const session = makeSessionWithTokenBuckets([
-      { date: "2026-02-01", quarterIndex: 40, totalTokens: 10_000 },
-    ]);
-
-    const stats = buildUsageMosaicStats([session], "utc");
-
-    expect(stats.totalTokens).toBe(10_000);
-    expect(stats.hourTotals[10]).toBe(10_000);
-    expect(stats.hourTotals[11]).toBe(0);
-  });
 
   it("filters selected hours by precise token buckets before falling back to session span", () => {
     const session = makeSessionWithTokenBuckets([

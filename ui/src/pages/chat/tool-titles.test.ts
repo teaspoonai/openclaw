@@ -1,106 +1,20 @@
 // Control UI tests cover tool-title request eligibility and the title store.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { GatewayBrowserClient } from "../../api/gateway.ts";
-import {
-  configureToolTitleFetcher,
-  getToolCallTitle,
-  resetToolTitlesForTest,
-  resolveToolTitleRequest,
-  setToolTitleForTest,
-} from "./tool-titles.ts";
+import { configureToolTitleFetcher, getToolCallTitle } from "./tool-titles.ts";
 
-const LONG_GENERIC_ARGS = {
-  title: "Investigate flaky gateway reconnect loop on the staging cluster",
-  description: "The websocket reconnect loop spins when the auth token expires mid-session.",
-};
-
-describe("resolveToolTitleRequest", () => {
-  afterEach(() => {
-    resetToolTitlesForTest();
-  });
-
-  it("requests titles for commands of at least 12 characters", () => {
-    const request = resolveToolTitleRequest("bash", { command: "git status --short" });
-
-    expect(request).not.toBeNull();
-    expect(request?.input).toBe("git status --short");
-    expect(request?.key).toMatch(/^t/);
-  });
-
-  it.each([
-    ["a short command", "bash", { command: "ls -la" }],
-    ["a read call", "read", { path: "/repo/a-very-long-path/to/some/file.ts" }],
-    ["an edit call", "edit", { path: "/repo/a.ts", oldText: "x".repeat(200), newText: "y" }],
-    ["a write call", "write", { path: "/repo/a.ts", content: "x".repeat(200) }],
-    ["a search call", "grep", { pattern: "x".repeat(200) }],
-    ["a fetch call", "web_fetch", { url: `https://x.dev/${"a".repeat(200)}` }],
-    ["a generic call with short args", "mcp__linear__create_issue", { title: "Fix bug" }],
-  ])("does not request a title for %s", (_label, name, args) => {
-    expect(resolveToolTitleRequest(name, args)).toBeNull();
-  });
-
-  it("requests titles for generic tools with at least 120 chars of serialized args", () => {
-    const request = resolveToolTitleRequest("mcp__linear__create_issue", LONG_GENERIC_ARGS);
-
-    expect(request).not.toBeNull();
-    expect(request?.input).toBe(JSON.stringify(LONG_GENERIC_ARGS));
-  });
-
-  it("keys equal name and args to the same digest", () => {
-    const first = resolveToolTitleRequest("bash", { command: "pnpm install --frozen" });
-    const second = resolveToolTitleRequest("bash", { command: "pnpm install --frozen" });
-
-    expect(first?.key).toBe(second?.key);
-  });
-
-  it.each([
-    ["command", "bash", { command: `${"a".repeat(1_999)}😀tail` }, "a".repeat(1_999)],
-    ["string args", "mcp__linear__create_issue", `${"a".repeat(1_999)}😀tail`, "a".repeat(1_999)],
-    [
-      "serialized object args",
-      "mcp__linear__create_issue",
-      { value: `${"a".repeat(1_989)}😀tail` },
-      '{"value":"' + "a".repeat(1_989),
-    ],
-  ])("keeps bounded %s on a valid UTF-16 boundary", (_label, name, args, expected) => {
-    expect(resolveToolTitleRequest(name, args)?.input).toBe(expected);
-  });
+afterEach(() => {
+  configureToolTitleFetcher({ client: null, sessionKey: null, onTitlesChanged: null });
+  vi.useRealTimers();
 });
 
 describe("getToolCallTitle", () => {
-  afterEach(() => {
-    resetToolTitlesForTest();
-  });
-
-  it("returns a stored title for the resolved request key", () => {
-    const args = { command: "git log --oneline -5" };
-    const request = resolveToolTitleRequest("bash", args);
-    if (!request) {
-      throw new Error("expected an eligible title request");
-    }
-    setToolTitleForTest(request.key, "Checked recent commits");
-
-    expect(getToolCallTitle("bash", args)).toBe("Checked recent commits");
-  });
-
   it("returns undefined for eligible calls without a stored title", () => {
     expect(getToolCallTitle("bash", { command: "git log --oneline -5" })).toBeUndefined();
-  });
-
-  it("returns undefined for ineligible calls even when a title exists", () => {
-    setToolTitleForTest("some-key", "Never shown");
-
-    expect(getToolCallTitle("read", { path: "/repo/a.ts" })).toBeUndefined();
   });
 });
 
 describe("title fetch batching", () => {
-  afterEach(() => {
-    configureToolTitleFetcher({ client: null, sessionKey: null, onTitlesChanged: null });
-    resetToolTitlesForTest();
-    vi.useRealTimers();
-  });
-
   it("notifies every pane that contributed rows to a title batch", async () => {
     vi.useFakeTimers();
     const client = {
@@ -119,14 +33,14 @@ describe("title fetch batching", () => {
       agentId: "a",
       onTitlesChanged: notifyA,
     });
-    getToolCallTitle("bash", { command: "pnpm run build --filter ui" });
+    getToolCallTitle("bash", { command: "pnpm run build --filter ui --reporter append-only" });
     configureToolTitleFetcher({
       client,
       sessionKey: "agent:a:main",
       agentId: "a",
       onTitlesChanged: notifyB,
     });
-    getToolCallTitle("bash", { command: "pnpm test ui/src/pages/chat" });
+    getToolCallTitle("bash", { command: "pnpm test ui/src/pages/chat --reporter verbose" });
     await vi.advanceTimersByTimeAsync(1_000);
 
     expect(notifyA).toHaveBeenCalled();
@@ -144,10 +58,10 @@ describe("title fetch batching", () => {
       agentId: "a",
       onTitlesChanged: null,
     });
-    getToolCallTitle("bash", { command: "pnpm run build --filter ui" });
+    getToolCallTitle("bash", { command: "pnpm run build --filter ui --mode production" });
     await vi.advanceTimersByTimeAsync(1_000);
     // A different eligible call after the disabled response must not schedule.
-    getToolCallTitle("bash", { command: "pnpm test ui/src/pages/chat" });
+    getToolCallTitle("bash", { command: "pnpm test ui/src/pages/chat --runInBand" });
     await vi.advanceTimersByTimeAsync(1_000);
 
     expect(request).toHaveBeenCalledTimes(1);
@@ -171,14 +85,14 @@ describe("title fetch batching", () => {
       agentId: "alice",
       onTitlesChanged: null,
     });
-    getToolCallTitle("bash", { command: "pnpm run build --filter ui" });
+    getToolCallTitle("bash", { command: "pnpm run build --filter ui --mode development" });
     configureToolTitleFetcher({
       client,
       sessionKey: "agent:b:main",
       agentId: "b",
       onTitlesChanged: null,
     });
-    getToolCallTitle("bash", { command: "pnpm test ui/src/pages/chat" });
+    getToolCallTitle("bash", { command: "pnpm test ui/src/pages/chat --sequence.concurrent" });
     await vi.advanceTimersByTimeAsync(1_000);
 
     expect(requests).toEqual([

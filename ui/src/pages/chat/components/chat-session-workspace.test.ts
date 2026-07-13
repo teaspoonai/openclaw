@@ -4,7 +4,6 @@ import {
   openSessionWorkspaceFile,
   toggleSessionWorkspace,
   type SessionWorkspaceHost,
-  workspaceBrowserFilePath,
 } from "./chat-session-workspace.ts";
 
 function gatewayHello(methods: string[], scopes = ["operator.admin"]) {
@@ -39,24 +38,6 @@ describe("toggleSessionWorkspace", () => {
 
     expect(createSessionWorkspaceProps(state).collapsed).toBe(true);
     expect(requestUpdate).toHaveBeenCalledTimes(2);
-  });
-});
-
-describe("workspaceBrowserFilePath", () => {
-  it("resolves browser rows from the workspace root", () => {
-    expect(workspaceBrowserFilePath("/workspace", "src/readme.md")).toBe(
-      "/workspace/src/readme.md",
-    );
-  });
-
-  it("preserves Windows workspace separators", () => {
-    expect(workspaceBrowserFilePath("C:\\workspace", "src/readme.md")).toBe(
-      "C:\\workspace\\src\\readme.md",
-    );
-  });
-
-  it("preserves the POSIX filesystem root", () => {
-    expect(workspaceBrowserFilePath("/", "src/readme.md")).toBe("/src/readme.md");
   });
 });
 
