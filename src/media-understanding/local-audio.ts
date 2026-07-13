@@ -5,7 +5,7 @@ import type { MediaUnderstandingModelConfig } from "../config/types.tools.js";
 import { runExec } from "../process/exec.js";
 import { fileExists } from "./fs.js";
 
-export type LocalAudioCandidate = {
+type LocalAudioCandidate = {
   id: "parakeet-mlx" | "whisper-cli" | "sherpa-onnx-offline" | "whisper";
   command: string;
   resolvedCommand?: string;
