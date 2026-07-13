@@ -7,6 +7,7 @@ import {
   testing,
   CodexAppServerClient,
   MIN_CODEX_APP_SERVER_VERSION,
+  compareCodexAppServerVersions,
   isCodexAppServerApprovalRequest,
   isCodexAppServerIndeterminateTransportError,
   readCodexVersionFromUserAgent,
@@ -509,6 +510,14 @@ describe("CodexAppServerClient", () => {
     expect(readCodexVersionFromUserAgent("Codex Desktop/0.124")).toBeUndefined();
     expect(readCodexVersionFromUserAgent("openclaw/0.125.0abc")).toBeUndefined();
     expect(readCodexVersionFromUserAgent("missing-version")).toBeUndefined();
+  });
+
+  it("orders Codex stable, prerelease, and custom-build versions", () => {
+    expect(compareCodexAppServerVersions("0.143.0", "0.144.0-beta.1")).toBe(-1);
+    expect(compareCodexAppServerVersions("0.144.0", "0.144.0-beta.1")).toBe(1);
+    expect(compareCodexAppServerVersions("0.144.0-beta.2", "0.144.0-beta.1")).toBe(1);
+    expect(compareCodexAppServerVersions("0.144.0+custom", "0.144.0")).toBe(-1);
+    expect(compareCodexAppServerVersions("0.124.0-dev.01", "0.143.0")).toBe(-1);
   });
 
   it("answers server-initiated requests with the registered handler result", async () => {
