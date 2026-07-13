@@ -571,7 +571,7 @@
   "src/agents/embedded-agent-runner/tool-result-truncation.ts": 1561,
   "src/agents/embedded-agent-runner/transcript-file-state.ts": 1013,
   "src/agents/embedded-agent-runner/transcript-rewrite.ts": 585,
-  "src/agents/embedded-agent-subscribe.handlers.messages.ts": 1508,
+  "src/agents/embedded-agent-subscribe.handlers.messages.ts": 1507,
   "src/agents/embedded-agent-subscribe.handlers.tools.ts": 1729,
   "src/agents/embedded-agent-subscribe.tools.ts": 1159,
   "src/agents/embedded-agent-subscribe.ts": 1512,
