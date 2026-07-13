@@ -612,7 +612,7 @@
   "src/agents/session-tool-result-guard.ts": 944,
   "src/agents/session-transcript-repair.ts": 827,
   "src/agents/session-write-lock.ts": 1103,
-  "src/agents/sessions/agent-session.ts": 3327,
+  "src/agents/sessions/agent-session.ts": 3338,
   "src/agents/sessions/auth-storage.ts": 566,
   "src/agents/sessions/extensions/loader.ts": 720,
   "src/agents/sessions/extensions/runner.ts": 1147,
