@@ -603,7 +603,7 @@
   "src/agents/runtime-plan/types.ts": 585,
   "src/agents/runtime/proxy.ts": 569,
   "src/agents/sandbox/browser.ts": 545,
-  "src/agents/sandbox/docker.ts": 695,
+  "src/agents/sandbox/docker.ts": 692,
   "src/agents/sandbox/fs-bridge-mutation-helper.ts": 526,
   "src/agents/sandbox/registry.ts": 726,
   "src/agents/sandbox/remote-fs-bridge.ts": 739,
