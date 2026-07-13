@@ -60,9 +60,12 @@ describe("workspace grid public operations", () => {
 
   it("offers the nearest expected free slot for an overlapping drop", () => {
     const widgets = [widget("a", 0, 0, 10, 1)];
-    expect(
-      resolveDrop({ requested: { x: 0, y: 0, w: 2, h: 1 }, widgets, widgetId: "b" }),
-    ).toEqual({ x: 0, y: 1, w: 2, h: 1 });
+    expect(resolveDrop({ requested: { x: 0, y: 0, w: 2, h: 1 }, widgets, widgetId: "b" })).toEqual({
+      x: 0,
+      y: 1,
+      w: 2,
+      h: 1,
+    });
   });
 
   it("never proposes a slot beyond the store's last row", () => {

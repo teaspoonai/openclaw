@@ -18,10 +18,6 @@ import "../components/terminal/terminal-panel-registration.ts";
 import "../components/tooltip.ts";
 import "../components/update-banner.ts";
 import { isSettingsNavigationRoute, type SidebarNavRoute } from "../app-navigation.ts";
-import {
-  navigationSurfaceIsHidden,
-  renderFloatingUpdateCard,
-} from "./navigation-surface.ts";
 import { APP_ROUTE_IDS, isRouteId, type RouteId } from "../app-routes.ts";
 import {
   COMMAND_PALETTE_TARGET_EVENT,
@@ -38,8 +34,8 @@ import { isWorkboardEnabledInConfigSnapshot } from "../lib/plugin-activation.ts"
 import { searchForSession } from "../lib/sessions/index.ts";
 import { OpenClawLightDomElement } from "../lit/openclaw-element.ts";
 import { SubscriptionsController } from "../lit/subscriptions-controller.ts";
-import "../pages/approval/approval-page.ts";
 import { findSettingsSearchBlocks } from "../pages/config/settings-search.ts";
+import "../pages/approval/approval-page.ts";
 import { renderDevicePairSetup } from "../pages/nodes/view-pairing.ts";
 import { pluginTabKey, pluginTabRefFromSearch } from "../pages/plugin/route.ts";
 import { bootstrapApplication, type ApplicationRuntime } from "./bootstrap.ts";
@@ -56,6 +52,7 @@ import {
   readNativeHistoryState,
   type NativeHistoryState,
 } from "./native-web-chrome.ts";
+import { navigationSurfaceIsHidden, renderFloatingUpdateCard } from "./navigation-surface.ts";
 import { hasOperatorAdminAccess } from "./operator-access.ts";
 import { controlUiPublicAssetPath } from "./public-assets.ts";
 import { selectRenderedRouteMatch } from "./router-outlet.ts";

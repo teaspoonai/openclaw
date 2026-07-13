@@ -53,7 +53,10 @@ type TestChatHost = Omit<ChatHost, "settings"> & {
 const executeSlashCommandMock = vi.hoisted(() => vi.fn());
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
-const registeredAttachmentPayloads = new Map<string, ReturnType<typeof registerStoredChatAttachmentPayload>>();
+const registeredAttachmentPayloads = new Map<
+  string,
+  ReturnType<typeof registerStoredChatAttachmentPayload>
+>();
 
 function registerChatAttachmentPayload(
   params: Parameters<typeof registerStoredChatAttachmentPayload>[0],

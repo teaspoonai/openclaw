@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  shouldRetryWithDeviceToken,
-  type DeviceTokenRetryDecision,
-} from "./device-token-retry.ts";
+import { shouldRetryWithDeviceToken, type DeviceTokenRetryDecision } from "./device-token-retry.ts";
 
 const DEVICE_IDENTITY = { deviceId: "device-1" };
 

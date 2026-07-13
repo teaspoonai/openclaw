@@ -347,7 +347,11 @@ describe("lobster pet element", () => {
     await arrive(molting);
     expect(await advanceUntilAct(molting, 30_000)).toBe("molt");
     expect(
-      await advanceUntil(molting, () => molting.querySelector(".lobster-pet--shell") !== null, 30_000),
+      await advanceUntil(
+        molting,
+        () => molting.querySelector(".lobster-pet--shell") !== null,
+        30_000,
+      ),
     ).toBe(true);
 
     const twins = createPet(21);

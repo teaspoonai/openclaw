@@ -140,9 +140,9 @@ describe("renderPlugins", () => {
     expect(normalizedText(pulse)).toContain("All 3");
     expect(normalizedText(pulse)).toContain("Enabled 1");
     expect(normalizedText(pulse)).toContain("Issues 1");
-    expect(container.querySelector('[data-plugin-id="broken"] [role="alert"]')?.textContent).toContain(
-      "manifest invalid",
-    );
+    expect(
+      container.querySelector('[data-plugin-id="broken"] [role="alert"]')?.textContent,
+    ).toContain("manifest invalid");
     const chips = container.querySelectorAll<HTMLButtonElement>(".plugins-filters button");
     expectDefined(chips[3], "issues filter chip").click();
     expect(onFilterChange).toHaveBeenCalledWith("issues");
@@ -202,9 +202,7 @@ describe("renderPlugins", () => {
         onInstall,
       }),
     );
-    const row = container.querySelector<HTMLElement>(
-      '[data-package-name="' + packageName + '"]',
-    );
+    const row = container.querySelector<HTMLElement>('[data-package-name="' + packageName + '"]');
     expect(normalizedText(row)).toContain("Official");
     expect(normalizedText(row)).toContain("Verified source");
     expect(normalizedText(row)).toContain("149.3K");
@@ -245,9 +243,7 @@ describe("renderPlugins", () => {
         onInstall,
       }),
     );
-    const row = container.querySelector<HTMLElement>(
-      '[data-package-name="' + packageName + '"]',
-    );
+    const row = container.querySelector<HTMLElement>('[data-package-name="' + packageName + '"]');
     expect(row?.querySelector('[role="alert"]')?.textContent).toContain("Review required.");
     row?.querySelector<HTMLButtonElement>(".plugins-row-message button")?.click();
     expect(onInstall).toHaveBeenCalledWith(key, {
@@ -293,9 +289,7 @@ describe("renderPlugins", () => {
         onSetEnabled,
       }),
     );
-    const row = container.querySelector<HTMLElement>(
-      '[data-package-name="' + packageName + '"]',
-    )!;
+    const row = container.querySelector<HTMLElement>('[data-package-name="' + packageName + '"]')!;
     expect(row.querySelector(".plugins-install")).toBeNull();
     expect(normalizedText(row.querySelector(".plugins-state"))).toBe("Enabled");
     menuItem(row, "Disable")?.click();

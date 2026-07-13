@@ -47,9 +47,9 @@ describe("chat-model-ref helpers", () => {
       value: "nvidia/moonshotai/kimi-k2.5",
       label: "Kimi K2.5 (NVIDIA)",
     });
-    expect(
-      formatCatalogChatModelDisplayFromLookup("nvidia/moonshotai/kimi-k2.5", lookup),
-    ).toBe("Kimi K2.5 (NVIDIA)");
+    expect(formatCatalogChatModelDisplayFromLookup("nvidia/moonshotai/kimi-k2.5", lookup)).toBe(
+      "Kimi K2.5 (NVIDIA)",
+    );
   });
 
   it("disambiguates duplicate names by provider and model id", () => {

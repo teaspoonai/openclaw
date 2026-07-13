@@ -94,9 +94,9 @@ describe("renderWidgetCell", () => {
     const title = container.querySelector(".workspace-widget__title");
     expect(title?.textContent?.trim()).toBe("Revenue");
     expect(title?.getAttribute("title")).toBe("Revenue (custom)");
-    expect(container.querySelector(".workspace-widget__provenance")?.getAttribute("title")).toContain(
-      "finance",
-    );
+    expect(
+      container.querySelector(".workspace-widget__provenance")?.getAttribute("title"),
+    ).toContain("finance");
     expect(container.querySelectorAll(".workspace-widget__menu-item")).toHaveLength(4);
     expect(container.querySelector(".workspace-stat__value")?.textContent).toContain("1,000");
     expect(container.querySelector(".workspace-widget__resize")).not.toBeNull();
@@ -110,9 +110,9 @@ describe("renderWidgetCell", () => {
 
   it("contains binding failures inside the affected cell", () => {
     const container = renderCell({ binding: { error: "binding failed" } });
-    expect(container.querySelector('[data-test-id="workspace-widget-error"]')?.textContent).toContain(
-      "binding failed",
-    );
+    expect(
+      container.querySelector('[data-test-id="workspace-widget-error"]')?.textContent,
+    ).toContain("binding failed");
   });
 
   it("renders approved custom widgets only after their manifest loads", () => {
@@ -120,7 +120,9 @@ describe("renderWidgetCell", () => {
       renderCell({
         widget: widget({ kind: "custom:chart" }),
         custom: customContext(),
-      }).querySelector("iframe")?.getAttribute("sandbox"),
+      })
+        .querySelector("iframe")
+        ?.getAttribute("sandbox"),
     ).toBe("allow-scripts");
     const loading = renderCell({
       widget: widget({ kind: "custom:chart" }),
@@ -145,10 +147,12 @@ describe("renderWidgetCell", () => {
       }),
     });
     expect(container.querySelector("iframe")).toBeNull();
-    expect(container.querySelector('[data-test-id="workspace-custom-pending"]')?.textContent).toContain(
-      "scaffold",
-    );
-    container.querySelector<HTMLButtonElement>('[data-test-id="workspace-custom-approve"]')?.click();
+    expect(
+      container.querySelector('[data-test-id="workspace-custom-pending"]')?.textContent,
+    ).toContain("scaffold");
+    container
+      .querySelector<HTMLButtonElement>('[data-test-id="workspace-custom-approve"]')
+      ?.click();
     container.querySelector<HTMLButtonElement>('[data-test-id="workspace-custom-reject"]')?.click();
     expect(onApprove).toHaveBeenCalledWith(candidate);
     expect(onReject).toHaveBeenCalledWith(candidate);

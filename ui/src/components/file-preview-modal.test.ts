@@ -16,10 +16,7 @@ let container: HTMLDivElement;
 
 const FILE_PREVIEW_MODAL_ELEMENT_NAME = `test-openclaw-file-preview-modal-${crypto.randomUUID()}`;
 
-customElements.define(
-  FILE_PREVIEW_MODAL_ELEMENT_NAME,
-  class extends OpenClawFilePreviewModal {},
-);
+customElements.define(FILE_PREVIEW_MODAL_ELEMENT_NAME, class extends OpenClawFilePreviewModal {});
 
 const files = [
   {

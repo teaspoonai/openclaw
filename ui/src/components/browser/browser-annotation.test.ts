@@ -22,7 +22,14 @@ describe("buildAnnotationPrompt", () => {
     const prompt = buildAnnotationPrompt({
       url: "https://github.com/openclaw/openclaw/pull/103853",
       title: "feat(ui): collapse session PR chips",
-      strokes: [{ points: [{ x: 0.2, y: 0.5 }, { x: 0.4, y: 0.7 }] }],
+      strokes: [
+        {
+          points: [
+            { x: 0.2, y: 0.5 },
+            { x: 0.4, y: 0.7 },
+          ],
+        },
+      ],
       element: node({ name: "Merge", role: "button" }),
     });
     expect(prompt).toContain("https://github.com/openclaw/openclaw/pull/103853");

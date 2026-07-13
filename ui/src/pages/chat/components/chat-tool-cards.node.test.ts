@@ -321,9 +321,6 @@ describe("tool-card extraction", () => {
     expect(standaloneCards[0]?.isError).toBe(true);
   });
 
-
-
-
   it("extracts canvas handle payloads into canvas previews", () => {
     const [card] = extractToolCards(
       {
@@ -356,7 +353,6 @@ describe("tool-card extraction", () => {
     expect(card?.preview?.preferredHeight).toBe(420);
     expect(card?.preview?.sandbox).toBe("scripts");
   });
-
 
   it("uses transcript metadata ids for history-backed tool messages", () => {
     const [card] = extractToolCards(

@@ -1,7 +1,6 @@
 import { expectDefined } from "@openclaw/normalization-core";
 import { describe, expect, it, vi } from "vitest";
 import type { GatewayBrowserClient, GatewayEventListener } from "../../api/gateway.ts";
-import type { WorkspaceDocument } from "./types.ts";
 import {
   clearActiveDrag,
   getWorkspaceState,
@@ -22,6 +21,7 @@ import {
   subscribeToWorkspaceEvents,
   visibleTabs,
 } from "./index.ts";
+import type { WorkspaceDocument } from "./types.ts";
 
 type MockClient = Pick<GatewayBrowserClient, "request" | "addEventListener">;
 

@@ -120,10 +120,7 @@ describe("renderSessionDetailPanel filtered usage", () => {
 
   it("never renders Invalid Date for out-of-range point timestamps", () => {
     const container = mount(
-      [
-        point({ timestamp: 8_640_000_000_000_001 }),
-        point({ timestamp: 8_640_000_000_000_002 }),
-      ],
+      [point({ timestamp: 8_640_000_000_000_001 }), point({ timestamp: 8_640_000_000_000_002 })],
       null,
       null,
     );

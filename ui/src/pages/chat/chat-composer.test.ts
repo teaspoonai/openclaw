@@ -168,9 +168,9 @@ describe("renderChatComposer status", () => {
     view = renderComposer({
       runStatus: { phase: "interrupted", runId: "run-1", sessionKey: "main", occurredAt: 900 },
     });
-    expect(view.container.querySelector(".agent-chat__run-status--interrupted")?.textContent).toContain(
-      "Interrupted",
-    );
+    expect(
+      view.container.querySelector(".agent-chat__run-status--interrupted")?.textContent,
+    ).toContain("Interrupted");
 
     now.mockReturnValue(7_000);
     view = renderComposer({

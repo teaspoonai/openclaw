@@ -135,8 +135,9 @@ describe("custom theme import helpers", () => {
     } else {
       payload.cssVars.light.background = token;
     }
-    const fetchImpl = vi.fn(async () => createResponse(JSON.stringify(payload))) as unknown as
-      | typeof fetch;
+    const fetchImpl = vi.fn(async () =>
+      createResponse(JSON.stringify(payload)),
+    ) as unknown as typeof fetch;
 
     await expect(
       importCustomThemeFromUrl("https://tweakcn.com/themes/cmlhfpjhw000004l4f4ax3m7z", fetchImpl),
@@ -146,8 +147,9 @@ describe("custom theme import helpers", () => {
   it("validates imported font families without regex backtracking", async () => {
     const payload = createTweakcnPayload();
     payload.cssVars.theme["font-sans"] = `${"Inter, ".repeat(20)}@bad`;
-    const fetchImpl = vi.fn(async () => createResponse(JSON.stringify(payload))) as unknown as
-      | typeof fetch;
+    const fetchImpl = vi.fn(async () =>
+      createResponse(JSON.stringify(payload)),
+    ) as unknown as typeof fetch;
 
     await expect(
       importCustomThemeFromUrl("https://tweakcn.com/themes/cmlhfpjhw000004l4f4ax3m7z", fetchImpl),

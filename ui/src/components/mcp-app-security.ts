@@ -5,9 +5,7 @@ export type McpAppHostSandboxCsp = NonNullable<
   NonNullable<McpAppHostCapabilities["sandbox"]>["csp"]
 >;
 
-export function buildMcpAppHostCapabilities(
-  csp?: McpAppHostSandboxCsp,
-): McpAppHostCapabilities {
+export function buildMcpAppHostCapabilities(csp?: McpAppHostSandboxCsp): McpAppHostCapabilities {
   return {
     openLinks: {},
     serverResources: {},

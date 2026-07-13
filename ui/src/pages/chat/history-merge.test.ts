@@ -53,4 +53,3 @@ describe("preserveOptimisticTailMessages", () => {
     ).toEqual([persistedUser, historyAssistant]);
   });
 });
-

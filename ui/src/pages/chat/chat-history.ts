@@ -48,15 +48,15 @@ import {
 } from "../../lib/sessions/session-key.ts";
 import { normalizeLowercaseStringOrEmpty } from "../../lib/string-coerce.ts";
 import {
-  controlUiNowMs,
-  recordControlUiPerformanceEvent,
-  roundedControlUiDurationMs,
-} from "./performance.ts";
-import {
   isLocallyOptimisticHistoryMessage,
   messageDisplaySignature,
   preserveOptimisticTailMessages,
 } from "./history-merge.ts";
+import {
+  controlUiNowMs,
+  recordControlUiPerformanceEvent,
+  roundedControlUiDurationMs,
+} from "./performance.ts";
 import { reconcileChatRunLifecycle } from "./run-lifecycle.ts";
 import { scheduleChatScroll } from "./scroll.ts";
 import {

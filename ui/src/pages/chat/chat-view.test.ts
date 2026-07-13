@@ -42,7 +42,10 @@ import { renderWelcomeState } from "./components/chat-welcome.ts";
 import { RealtimeTalkLevelSignal } from "./realtime-talk-level.ts";
 
 type ChatRealtimeTalkOptionsProps = Parameters<typeof renderRealtimeTalkOptions>[0];
-const registeredAttachmentPayloads = new Map<string, ReturnType<typeof registerStoredChatAttachmentPayload>>();
+const registeredAttachmentPayloads = new Map<
+  string,
+  ReturnType<typeof registerStoredChatAttachmentPayload>
+>();
 
 function registerChatAttachmentPayload(
   params: Parameters<typeof registerStoredChatAttachmentPayload>[0],

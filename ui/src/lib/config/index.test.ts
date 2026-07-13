@@ -97,8 +97,8 @@ describe("createRuntimeConfigCapability", () => {
       }
       getCount += 1;
       return getCount === 1
-        ? { config: { count: 1 }, hash: "hash-1", valid: true, issues: [], raw: "{\"count\":1}" }
-        : { config: { count: 3 }, hash: "hash-2", valid: true, issues: [], raw: "{\"count\":3}" };
+        ? { config: { count: 1 }, hash: "hash-1", valid: true, issues: [], raw: '{"count":1}' }
+        : { config: { count: 3 }, hash: "hash-2", valid: true, issues: [], raw: '{"count":3}' };
     });
     const client = { request } as unknown as GatewayBrowserClient;
     const { gateway } = createGatewayHarness(client);

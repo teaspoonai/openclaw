@@ -9,13 +9,13 @@ import {
   subtitleForRoute,
   titleForRoute,
 } from "./app-navigation.ts";
+import { inferBasePathFromPathname, normalizeBasePath } from "./app-route-paths.ts";
 import {
   createApplicationRouter,
   pathForRoute,
   routeIdFromPath,
   type RouteId,
 } from "./app-routes.ts";
-import { inferBasePathFromPathname, normalizeBasePath } from "./app-route-paths.ts";
 import { pluginTabKey, pluginTabRefFromSearch, pluginTabSearch } from "./pages/plugin/route.ts";
 
 /**

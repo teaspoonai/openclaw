@@ -2008,9 +2008,9 @@ describe("grouped chat rendering", () => {
     const expectedMetaUrl = `/openclaw/__openclaw__/assistant-media?source=${encodeURIComponent(source).replaceAll("%20", "+")}&meta=1`;
     const [, fetchInit] = requireFetchCallForUrl(fetchMock, expectedMetaUrl);
     expectSameOriginGet(fetchInit);
-    expect(container.querySelector<HTMLImageElement>(".chat-message-image")?.getAttribute("src")).toBe(
-      expectedMetaUrl.replace("&meta=1", "&mediaTicket=ticket-local"),
-    );
+    expect(
+      container.querySelector<HTMLImageElement>(".chat-message-image")?.getAttribute("src"),
+    ).toBe(expectedMetaUrl.replace("&meta=1", "&mediaTicket=ticket-local"));
   });
 
   it("preserves same-origin assistant attachments without local preview rewriting", () => {
@@ -2020,7 +2020,8 @@ describe("grouped chat rendering", () => {
       {
         id: "assistant-same-origin-media-inline",
         role: "assistant",
-        content: "Inline\nMEDIA:/media/inbound/test-image.png\nMEDIA:/__openclaw__/media/test-doc.pdf",
+        content:
+          "Inline\nMEDIA:/media/inbound/test-image.png\nMEDIA:/__openclaw__/media/test-doc.pdf",
         timestamp: Date.now(),
       },
       {
@@ -2030,13 +2031,13 @@ describe("grouped chat rendering", () => {
       },
     );
 
-    expect(container.querySelector<HTMLImageElement>(".chat-message-image")?.getAttribute("src")).toBe(
-      "/media/inbound/test-image.png",
-    );
     expect(
-      container.querySelector<HTMLAnchorElement>(".chat-assistant-attachment-card__link")?.getAttribute(
-        "href",
-      ),
+      container.querySelector<HTMLImageElement>(".chat-message-image")?.getAttribute("src"),
+    ).toBe("/media/inbound/test-image.png");
+    expect(
+      container
+        .querySelector<HTMLAnchorElement>(".chat-assistant-attachment-card__link")
+        ?.getAttribute("href"),
     ).toBe("/__openclaw__/media/test-doc.pdf");
     expect(container.querySelector(".chat-assistant-attachment-card--blocked")).toBeNull();
   });
@@ -2063,9 +2064,9 @@ describe("grouped chat rendering", () => {
     expect(blocked?.querySelector(".chat-assistant-attachment-card__title")?.textContent).toBe(
       "private.pdf",
     );
-    expect(blocked?.querySelector(".chat-assistant-attachment-card__reason")?.textContent?.trim()).toBe(
-      "Outside allowed folders",
-    );
+    expect(
+      blocked?.querySelector(".chat-assistant-attachment-card__reason")?.textContent?.trim(),
+    ).toBe("Outside allowed folders");
     expect(container.querySelector(".chat-text")?.textContent?.trim()).toBe("Blocked\nDone");
   });
 

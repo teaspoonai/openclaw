@@ -96,11 +96,7 @@ describe("renderWorkspace", () => {
   });
 
   it("honors workspace deep links and updates them from tab navigation", () => {
-    window.history.replaceState(
-      {},
-      "",
-      "/plugin?plugin=workspaces&id=workspaces&ws=empty",
-    );
+    window.history.replaceState({}, "", "/plugin?plugin=workspaces&id=workspaces&ws=empty");
     const host = document.createElement("div");
     document.body.append(host);
     const state = getWorkspaceState(host);

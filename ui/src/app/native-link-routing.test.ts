@@ -247,4 +247,3 @@ describe("native link routing", () => {
     expect(bridge.messages).toEqual([]);
   });
 });
-

@@ -163,9 +163,7 @@ describe("channel refresh sequencing", () => {
     const slowProbe = createDeferred<ChannelsStatusSnapshot | null>();
     const fastRuntime = createDeferred<ChannelsStatusSnapshot | null>();
     const request = vi.fn(async (_method: string, params?: unknown) =>
-      (params as { probe?: boolean } | undefined)?.probe
-        ? slowProbe.promise
-        : fastRuntime.promise,
+      (params as { probe?: boolean } | undefined)?.probe ? slowProbe.promise : fastRuntime.promise,
     );
     const channels = createChannelCapability({
       snapshot: { client: { request }, connected: true },
