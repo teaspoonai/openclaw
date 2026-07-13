@@ -27,6 +27,7 @@ export type SessionNavigationInput = {
   sessionKey: string;
   assistantAgentId?: string | null;
   hello?: GatewayHelloOk | null;
+  showCron?: boolean;
   compareSessions?: (a: GatewaySessionRow, b: GatewaySessionRow) => number;
 };
 
@@ -221,7 +222,7 @@ type VisibleSessionRowOptions = {
   agentId: string;
   defaultAgentId: string;
   filterByAgent?: boolean;
-  hideCron?: boolean;
+  showCron?: boolean;
 };
 
 export function filterVisibleSessionRows(
@@ -236,7 +237,7 @@ export function filterVisibleSessionRows(
       !row.archived &&
       row.kind !== "global" &&
       row.kind !== "unknown" &&
-      (options.hideCron === false || (row.kind !== "cron" && !isCronSessionKey(row.key))) &&
+      (options.showCron === true || (row.kind !== "cron" && !isCronSessionKey(row.key))) &&
       !isSubagentSessionKey(row.key) &&
       !row.spawnedBy &&
       (!options.filterByAgent ||
@@ -285,6 +286,7 @@ export function resolveSessionNavigation(input: SessionNavigationInput): Session
     agentId: selectedAgentId,
     defaultAgentId,
     filterByAgent: shouldFilterByAgent,
+    showCron: input.showCron,
   }).toSorted(input.compareSessions ?? compareSessionRowsByUpdatedAt);
   // The sidebar is the session list, not a recent-session preview. Keep every
   // active row in its sorted slot so selecting a session never reshuffles or

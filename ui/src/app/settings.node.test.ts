@@ -157,14 +157,13 @@ describe("loadSettings default gateway URL derivation", () => {
     );
   });
 
-  it("defaults chat auto-scroll to near-bottom", () => {
+  it("defaults the chat send shortcut to enter", () => {
     setTestLocation({
       protocol: "https:",
       host: "gateway.example:8443",
       pathname: "/",
     });
 
-    expect(loadSettings().chatAutoScroll).toBe("near-bottom");
     expect(loadSettings().chatSendShortcut).toBe("enter");
   });
 
@@ -257,7 +256,6 @@ describe("loadSettings default gateway URL derivation", () => {
       themeMode: "system",
       chatShowThinking: true,
       chatShowToolCalls: true,
-      chatAutoScroll: "near-bottom",
       splitRatio: 0.6,
       navCollapsed: false,
       navWidth: 258,
@@ -289,7 +287,6 @@ describe("loadSettings default gateway URL derivation", () => {
       themeMode: "system",
       chatShowThinking: true,
       chatShowToolCalls: true,
-      chatAutoScroll: "near-bottom",
       splitRatio: 0.6,
       navCollapsed: false,
       navWidth: 258,
@@ -306,7 +303,6 @@ describe("loadSettings default gateway URL derivation", () => {
       themeMode: "system",
       chatShowThinking: true,
       chatShowToolCalls: true,
-      chatAutoScroll: "near-bottom",
       splitRatio: 0.6,
       navCollapsed: false,
       navWidth: 258,
@@ -354,7 +350,6 @@ describe("loadSettings default gateway URL derivation", () => {
       chatShowThinking: true,
       chatShowToolCalls: true,
       chatPersistCommentary: false,
-      chatAutoScroll: "near-bottom",
       splitRatio: 0.6,
       navCollapsed: false,
       navWidth: 258,
@@ -388,7 +383,6 @@ describe("loadSettings default gateway URL derivation", () => {
       themeMode: "system",
       chatShowThinking: true,
       chatShowToolCalls: true,
-      chatAutoScroll: "near-bottom",
       splitRatio: 0.6,
       navCollapsed: false,
       navWidth: 258,
@@ -434,33 +428,6 @@ describe("loadSettings default gateway URL derivation", () => {
     );
 
     expect(loadSettings().textScale).toBe(125);
-  });
-
-  it("loads valid chat auto-scroll modes and normalizes invalid values", () => {
-    setTestLocation({
-      protocol: "https:",
-      host: "gateway.example:8443",
-      pathname: "/",
-    });
-
-    const gwUrl = expectedGatewayUrl("");
-    localStorage.setItem(
-      `openclaw.control.settings.v1:${gwUrl}`,
-      JSON.stringify({
-        gatewayUrl: gwUrl,
-        chatAutoScroll: "off",
-      }),
-    );
-    expect(loadSettings().chatAutoScroll).toBe("off");
-
-    localStorage.setItem(
-      `openclaw.control.settings.v1:${gwUrl}`,
-      JSON.stringify({
-        gatewayUrl: gwUrl,
-        chatAutoScroll: "disabled",
-      }),
-    );
-    expect(loadSettings().chatAutoScroll).toBe("near-bottom");
   });
 
   it("persists only the non-default chat send shortcut", () => {
