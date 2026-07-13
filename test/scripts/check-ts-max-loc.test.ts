@@ -34,10 +34,9 @@ describe("scripts/check-ts-max-loc", () => {
     }
   });
 
-  it("rejects the retired base-ref flag so stale callers fail loudly", () => {
-    expect(() => parseArgs(["--base-ref", "refs/remotes/origin/pr-base"])).toThrow(
-      "Unknown argument: --base-ref",
-    );
+  it("accepts and ignores the retired base-ref flag from existing CI callers", () => {
+    expect(parseArgs(["--base-ref", "refs/remotes/origin/pr-base"])).toEqual(parseArgs([]));
+    expect(() => parseArgs(["--base-ref"])).toThrow("--base-ref requires a git ref");
   });
 
   it("grandfathers exact legacy sizes and rejects growth or stale baselines", () => {

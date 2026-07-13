@@ -45,6 +45,17 @@ export function parseArgs(argv: string[]): ParsedArgs {
       index++;
       continue;
     }
+    if (arg === "--base-ref") {
+      // Accepted and ignored: CI still passes the retired comparison ref. The
+      // check compares against the checked-in baseline only; raises land as
+      // reviewable baseline diffs in the same PR (see the note in main()).
+      const next = argv[index + 1];
+      if (!next || next.startsWith("-")) {
+        throw new Error("--base-ref requires a git ref");
+      }
+      index++;
+      continue;
+    }
     if (arg === "--write-baseline") {
       writeBaseline = true;
       continue;
@@ -185,7 +196,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     throw error;
   });
 
-  const { baseRef, baselinePath, maxLines, writeBaseline } = parseArgs(argv);
+  const { baselinePath, maxLines, writeBaseline } = parseArgs(argv);
   const files = gitLsFilesAll()
     .filter((filePath) => existsSync(filePath))
     .filter(isProductionTypeScriptFile);
