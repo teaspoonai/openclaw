@@ -22,7 +22,7 @@ function isLoopbackIPv4Host(host: string): boolean {
   });
 }
 
-function isTrustedRetryEndpoint(url: string, pageUrl: string): boolean {
+export function isTrustedDeviceTokenRetryEndpoint(url: string, pageUrl: string): boolean {
   try {
     const gatewayUrl = new URL(url, pageUrl);
     const host = gatewayUrl.hostname.trim().toLowerCase();
@@ -47,6 +47,6 @@ export function shouldRetryWithDeviceToken(
     Boolean(params.deviceIdentity) &&
     Boolean(params.storedToken) &&
     params.canRetryWithDeviceTokenHint &&
-    isTrustedRetryEndpoint(params.url, pageUrl)
+    isTrustedDeviceTokenRetryEndpoint(params.url, pageUrl)
   );
 }

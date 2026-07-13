@@ -63,6 +63,7 @@ function mount(points: TimeSeriesPoint[], start: number | null, end: number | nu
       vi.fn(),
       start,
       end,
+      vi.fn(),
       "2026-01-01",
       "2026-01-02",
       [],

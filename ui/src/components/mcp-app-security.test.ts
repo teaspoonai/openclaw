@@ -60,7 +60,9 @@ describe("MCP App sandbox security", () => {
       ],
     ] as const;
     for (const args of invalid) {
-      expect(() => resolveMcpAppSandboxUrl(...args)).toThrow("MCP App sandbox URL is invalid");
+      expect(() => resolveMcpAppSandboxUrl(args[0], args[1], args[2], args[3], args[4])).toThrow(
+        "MCP App sandbox URL is invalid",
+      );
     }
   });
 });

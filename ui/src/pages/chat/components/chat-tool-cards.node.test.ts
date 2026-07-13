@@ -1,7 +1,7 @@
 // @vitest-environment node
 
 import { describe, expect, it, vi } from "vitest";
-import { extractToolCards } from "../../../lib/chat/tool-cards.ts";
+import { extractToolCardsCached as extractToolCards } from "../../../lib/chat/tool-cards.ts";
 
 vi.mock("../../../components/icons.ts", () => ({
   icons: {},

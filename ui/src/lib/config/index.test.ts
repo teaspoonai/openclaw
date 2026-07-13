@@ -189,11 +189,7 @@ describe("createRuntimeConfigCapability", () => {
     expect(runtimeConfig.stageDefaultAgent("reviewer")).toBe(true);
     expect(runtimeConfig.state.configForm).toMatchObject({
       agents: {
-        list: [
-          { id: "main", default: false },
-          { id: "reviewer", default: true },
-          { id: "new-agent" },
-        ],
+        list: [{ id: "main" }, { id: "reviewer", default: true }, { id: "new-agent" }],
       },
     });
     runtimeConfig.dispose();

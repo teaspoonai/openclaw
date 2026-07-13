@@ -1,5 +1,6 @@
 import { render } from "lit";
 import { describe, expect, it, vi } from "vitest";
+import type { WorkspaceBindingResult } from "../lib/workspace/index.ts";
 import type { WorkspaceWidget, WidgetManifestView } from "../lib/workspace/types.ts";
 import type { BuiltinWidgetContext } from "../lib/workspace/widgets/index.ts";
 import {
@@ -64,7 +65,7 @@ function customContext(
 
 function renderCell(params: {
   widget?: WorkspaceWidget;
-  binding?: { value?: unknown; error?: string } | null;
+  binding?: WorkspaceBindingResult | null;
   custom?: WorkspaceCustomWidgetContext;
   menuOpen?: boolean;
 }) {

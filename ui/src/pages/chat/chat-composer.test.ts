@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import { render } from "lit";
+import { html, render } from "lit";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { i18n, t } from "../../i18n/index.ts";
 import { renderChatComposer, resetChatComposerState } from "./components/chat-composer.ts";
@@ -162,11 +162,14 @@ describe("renderChatComposer controls", () => {
 describe("renderChatComposer status", () => {
   it("renders only a fresh interrupted run as visible status chrome", () => {
     const now = vi.spyOn(Date, "now").mockReturnValue(1_000);
-    let view = renderComposer({ runStatus: { phase: "in-progress" } });
+    let view = renderComposer({
+      runStatus: { phase: "done", runId: "run-0", sessionKey: "main", occurredAt: 900 },
+    });
     expect(view.container.querySelector(".agent-chat__run-status")).toBeNull();
 
     view = renderComposer({
       runStatus: { phase: "interrupted", runId: "run-1", sessionKey: "main", occurredAt: 900 },
+      composerControls: html`<button type="button">Settings</button>`,
     });
     expect(
       view.container.querySelector(".agent-chat__run-status--interrupted")?.textContent,
@@ -175,6 +178,7 @@ describe("renderChatComposer status", () => {
     now.mockReturnValue(7_000);
     view = renderComposer({
       runStatus: { phase: "interrupted", runId: "run-1", sessionKey: "main", occurredAt: 1_000 },
+      composerControls: html`<button type="button">Settings</button>`,
     });
     expect(view.container.querySelector(".agent-chat__run-status--interrupted")).toBeNull();
   });

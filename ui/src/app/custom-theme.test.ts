@@ -193,10 +193,15 @@ describe("custom theme import helpers", () => {
     expect(remove).toHaveBeenCalledOnce();
   });
 
-  it("rejects stored custom themes with missing tokens when syncing", () => {
+  it("removes the managed style tag when a stored theme is missing tokens", () => {
+    const remove = vi.fn();
+    vi.stubGlobal("document", {
+      getElementById: vi.fn(() => ({ remove })),
+    } as unknown as Document);
     const theme = { ...createImportedTheme(), light: undefined } as unknown as ImportedCustomTheme;
-    expect(() => syncCustomThemeStyleTag(theme)).toThrow(
-      "Stored custom theme is missing required tokens.",
-    );
+
+    syncCustomThemeStyleTag(theme);
+
+    expect(remove).toHaveBeenCalledOnce();
   });
 });

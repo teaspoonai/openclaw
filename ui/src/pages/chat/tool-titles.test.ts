@@ -39,7 +39,7 @@ describe("title fetch batching", () => {
 
   it("deduplicates equal tool name and arguments into one request key", async () => {
     vi.useFakeTimers();
-    const request = vi.fn(async () => ({ titles: {} }));
+    const request = vi.fn(async (_method: string, _params: unknown) => ({ titles: {} }));
     configureToolTitleFetcher({
       client: { request } as unknown as GatewayBrowserClient,
       sessionKey: "main",

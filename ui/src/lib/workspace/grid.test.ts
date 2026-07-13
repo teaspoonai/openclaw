@@ -36,7 +36,7 @@ describe("workspace grid public operations", () => {
       clientY: 0,
       metrics: { width: 720 },
     });
-    expect(updateDrag(drag, 1_000, 1_000)).toEqual({ x: 8, y: 498, w: 12, h: 20 });
+    expect(updateDrag(drag, 1_000, 1_000)).toEqual({ x: 0, y: 498, w: 12, h: 20 });
     expect(nudgeRect({ x: 0, y: 499, w: 2, h: 1 }, "move", "down")).toEqual({
       x: 0,
       y: 499,

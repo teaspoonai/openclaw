@@ -30,7 +30,10 @@ import {
   signDevicePayload,
 } from "../lib/nodes/index.ts";
 import { generateUUID } from "../lib/uuid.ts";
-import { shouldRetryWithDeviceToken } from "./device-token-retry.ts";
+import {
+  isTrustedDeviceTokenRetryEndpoint,
+  shouldRetryWithDeviceToken,
+} from "./device-token-retry.ts";
 import { isNonRecoverableConnectError, resolveGatewayErrorDetailCode } from "./reconnect-policy.ts";
 
 export { resolveGatewayErrorDetailCode } from "./reconnect-policy.ts";
@@ -1039,7 +1042,7 @@ export class GatewayBrowserClient {
       this.pendingDeviceTokenRetry &&
       Boolean(explicitGatewayToken) &&
       Boolean(storedToken) &&
-      isTrustedRetryEndpoint(this.opts.url);
+      isTrustedDeviceTokenRetryEndpoint(this.opts.url, window.location.href);
     const resolvedDeviceToken = !(explicitGatewayToken || authPassword)
       ? (storedToken ?? undefined)
       : undefined;
