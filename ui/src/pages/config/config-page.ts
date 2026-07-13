@@ -367,10 +367,17 @@ export class ConfigPage extends OpenClawLightDomElement {
   private async refreshMicrophones(requestPermission: boolean) {
     this.microphoneLoading = true;
     this.microphoneError = null;
-    const result = await discoverRealtimeTalkInputs(requestPermission);
-    this.microphoneDevices = result.devices;
-    this.microphoneError = result.warning;
-    this.microphoneLoading = false;
+    try {
+      const result = await discoverRealtimeTalkInputs(requestPermission);
+      this.microphoneDevices = result.devices;
+      this.microphoneError = result.warning;
+    } catch (error) {
+      // Discovery is best-effort in blocked/inactive contexts; a rejection
+      // must not wedge the picker in its loading state.
+      this.microphoneError = error instanceof Error ? error.message : String(error);
+    } finally {
+      this.microphoneLoading = false;
+    }
   }
 
   private syncRouteData() {

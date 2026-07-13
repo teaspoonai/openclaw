@@ -490,7 +490,22 @@ export function persistSessionToken(gatewayUrl: string, token: string) {
   }
 }
 
+// Last write that never reached localStorage (private mode, quota, security
+// errors). Without it a setting picked on one page silently reverts when
+// another page re-reads storage in the same tab.
+let unpersistedSettings: UiSettings | null = null;
+
+export function resetUnpersistedSettingsForTest() {
+  unpersistedSettings = null;
+}
+
 export function loadSettings(): UiSettings {
+  if (unpersistedSettings) {
+    return {
+      ...unpersistedSettings,
+      token: loadSessionToken(unpersistedSettings.gatewayUrl),
+    };
+  }
   const { pageUrl: pageDerivedUrl, effectiveUrl: defaultUrl } = deriveDefaultGatewayUrl();
   const storage = getSafeLocalStorage();
 
@@ -683,6 +698,7 @@ function persistSettings(next: UiSettings, options: { selectGateway?: boolean } 
     ...(next.lobsterPetSounds === true ? { lobsterPetSounds: true } : {}),
   };
   const serialized = JSON.stringify(persisted);
+  unpersistedSettings = next;
   try {
     const { pageUrl } = deriveDefaultGatewayUrl();
     const selectionKey = currentGatewaySelectionKeyForPage(pageUrl);
@@ -691,8 +707,12 @@ function persistSettings(next: UiSettings, options: { selectGateway?: boolean } 
       storage?.setItem(selectionKey, next.gatewayUrl);
     }
     storage?.removeItem(LEGACY_SETTINGS_KEY);
+    if (storage) {
+      unpersistedSettings = null;
+    }
   } catch {
     // best-effort — quota exceeded or security restrictions should not
-    // prevent in-memory settings and visual updates from being applied
+    // prevent in-memory settings and visual updates from being applied;
+    // unpersistedSettings keeps this tab consistent until storage recovers
   }
 }
