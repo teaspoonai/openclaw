@@ -80,6 +80,10 @@ function gitLsFilesAll(): string[] {
 export function isProductionTypeScriptFile(filePath: string): boolean {
   return (
     /\.(?:ts|tsx|mts|cts)$/u.test(filePath) &&
+    // The i18n catalog grows with every key: en.ts is a single source-of-truth
+    // registry and the other bundles are generated. A never-grow ratchet here
+    // would block every string addition, and the bundles cannot be split.
+    !filePath.startsWith("ui/src/i18n/locales/") &&
     !/(^|\/)(test|tests|__tests__|test-helpers?|test-support)(\/|$)|\.(test|spec|suite)\.[cm]?tsx?$|(?:^|[/.-])test-(?:helpers?|support|harness)(?:[/.-]|$)/u.test(
       filePath,
     )

@@ -111,6 +111,12 @@ describe("scripts/check-ts-max-loc", () => {
     }
   });
 
+  it("excludes the i18n catalog, which grows with every key and cannot be split", () => {
+    expect(isProductionTypeScriptFile("ui/src/i18n/locales/en.ts")).toBe(false);
+    expect(isProductionTypeScriptFile("ui/src/i18n/locales/zh-CN.ts")).toBe(false);
+    expect(isProductionTypeScriptFile("ui/src/i18n/lib/registry.ts")).toBe(true);
+  });
+
   it("allows baseline updates only for decreases and removals", () => {
     const violations = findLocBaselineUpdateViolations({
       maxLines: 500,
