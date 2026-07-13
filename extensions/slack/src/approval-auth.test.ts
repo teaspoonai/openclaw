@@ -1,3 +1,4 @@
+import { isImplicitSameChatApprovalAuthorization } from "openclaw/plugin-sdk/approval-auth-runtime";
 // Slack tests cover approval auth plugin behavior.
 import { describe, expect, it } from "vitest";
 import { isSlackApprovalAuthorizedSender, slackApprovalAuth } from "./approval-auth.js";
@@ -107,19 +108,20 @@ describe("slackApprovalAuth", () => {
       },
     };
 
-    expect(
-      slackApprovalAuth.authorizeActorAction({
-        cfg,
-        senderId: "U123OWNER",
-        action: "approve",
-        approvalKind: "plugin",
-      }),
-    ).toEqual({ authorized: true });
+    const result = slackApprovalAuth.authorizeActorAction({
+      cfg,
+      senderId: "U123OWNER",
+      action: "approve",
+      approvalKind: "plugin",
+    });
+    expect(result).toEqual({ authorized: true });
+    expect(isImplicitSameChatApprovalAuthorization(result)).toBe(true);
     expect(
       isSlackApprovalAuthorizedSender({
         cfg,
         senderId: "U123OWNER",
       }),
     ).toBe(true);
+    expect(isSlackApprovalAuthorizedSender({ cfg })).toBe(false);
   });
 });

@@ -135,7 +135,7 @@ const defaultPublicDeprecatedExportsByEntrypointBudget = Object.freeze({
   types: 6,
   "agent-config-primitives": 2,
   "command-auth": 81,
-  compat: 152,
+  compat: 155,
   "direct-dm": 9,
   "direct-dm-access": 5,
   discord: 48,
@@ -199,17 +199,17 @@ export function readPluginSdkSurfaceBudgets(env = process.env) {
     ),
     publicExports: readPluginSdkSurfaceBudgetEnv(
       "OPENCLAW_PLUGIN_SDK_MAX_PUBLIC_EXPORTS",
-      10639,
+      10645,
       env,
     ),
     publicFunctionExports: readPluginSdkSurfaceBudgetEnv(
       "OPENCLAW_PLUGIN_SDK_MAX_PUBLIC_FUNCTION_EXPORTS",
-      5355,
+      5360,
       env,
     ),
     publicDeprecatedExports: readPluginSdkSurfaceBudgetEnv(
       "OPENCLAW_PLUGIN_SDK_MAX_PUBLIC_DEPRECATED_EXPORTS",
-      3279,
+      3280,
       env,
     ),
     publicWildcardReexports: readPluginSdkSurfaceBudgetEnv(
