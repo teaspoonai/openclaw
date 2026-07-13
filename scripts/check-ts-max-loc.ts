@@ -106,6 +106,30 @@ type LocResult = {
 
 type LocBaseline = Record<string, number>;
 
+export function scopeLocRatchetInputs(params: {
+  baseline: LocBaseline;
+  baseBaseline: LocBaseline;
+  changedPaths: Iterable<string>;
+  results: LocResult[];
+}): { baseline: LocBaseline; results: LocResult[] } {
+  const scopedPaths = new Set(params.changedPaths);
+  const baselinePaths = new Set([
+    ...Object.keys(params.baseBaseline),
+    ...Object.keys(params.baseline),
+  ]);
+  for (const filePath of baselinePaths) {
+    if (params.baseBaseline[filePath] !== params.baseline[filePath]) {
+      scopedPaths.add(filePath);
+    }
+  }
+  return {
+    baseline: Object.fromEntries(
+      Object.entries(params.baseline).filter(([filePath]) => scopedPaths.has(filePath)),
+    ),
+    results: params.results.filter((result) => scopedPaths.has(result.filePath)),
+  };
+}
+
 export type LocRatchetViolation = LocResult & {
   baselineLines?: number;
   reason: "baseline-missing" | "baseline-stale" | "grew";
@@ -251,6 +275,15 @@ function readBaselineAtRef(
   return content === undefined ? undefined : parseBaseline(content, `${baseRef}:${baselinePath}`);
 }
 
+function readChangedPathsAtRef(baseRef: string): Set<string> {
+  const tracked = tryGitOutput(["diff", "--name-only", "--no-renames", baseRef, "--"]);
+  const untracked = tryGitOutput(["ls-files", "--others", "--exclude-standard"]);
+  if (tracked === undefined || untracked === undefined) {
+    throw new Error(`Unable to compare TypeScript LOC paths with ${baseRef}`);
+  }
+  return new Set(`${tracked}\n${untracked}`.split("\n").filter(Boolean));
+}
+
 function buildBaseline(results: LocResult[], maxLines: number): LocBaseline {
   return Object.fromEntries(
     results
@@ -307,13 +340,20 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   }
 
   const baseline = await readBaseline(baselinePath);
-  const baseBaseline = readBaselineAtRef(
-    resolveComparisonBaseRef(baselinePath, baseRef),
-    baselinePath,
-  );
+  const comparisonBaseRef = resolveComparisonBaseRef(baselinePath, baseRef);
+  const baseBaseline = readBaselineAtRef(comparisonBaseRef, baselinePath);
+  const scoped =
+    comparisonBaseRef && baseBaseline
+      ? scopeLocRatchetInputs({
+          baseline,
+          baseBaseline,
+          changedPaths: readChangedPathsAtRef(comparisonBaseRef),
+          results,
+        })
+      : { baseline, results };
   const violations = [
     ...(baseBaseline ? findVersionedBaselineViolations({ baseline, baseBaseline }) : []),
-    ...findLocRatchetViolations({ baseline, maxLines, results }),
+    ...findLocRatchetViolations({ baseline: scoped.baseline, maxLines, results: scoped.results }),
   ];
   reportViolations(violations);
   return violations.length === 0 ? 0 : 1;

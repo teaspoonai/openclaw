@@ -8,6 +8,7 @@ import {
   findVersionedBaselineViolations,
   isProductionTypeScriptFile,
   parseArgs,
+  scopeLocRatchetInputs,
 } from "../../scripts/check-ts-max-loc.js";
 
 function runCheckTsMaxLoc(args: string[]) {
@@ -129,6 +130,52 @@ describe("scripts/check-ts-max-loc", () => {
     expect(violations).toEqual([
       { filePath: "src/grew.ts", lines: 701, baselineLines: 700, reason: "grew" },
       { filePath: "src/new.ts", lines: 501, reason: "baseline-missing" },
+    ]);
+  });
+
+  it("scopes ratchet checks to PR and baseline changes", () => {
+    const scoped = scopeLocRatchetInputs({
+      baseBaseline: {
+        "src/baseline-edited.ts": 700,
+        "src/feature.ts": 700,
+        "src/unrelated-main-drift.ts": 700,
+      },
+      baseline: {
+        "src/baseline-edited.ts": 650,
+        "src/feature.ts": 700,
+        "src/unrelated-main-drift.ts": 700,
+      },
+      changedPaths: ["src/feature.ts"],
+      results: [
+        { filePath: "src/baseline-edited.ts", lines: 699 },
+        { filePath: "src/feature.ts", lines: 701 },
+        { filePath: "src/unrelated-main-drift.ts", lines: 701 },
+      ],
+    });
+
+    expect(scoped).toEqual({
+      baseline: {
+        "src/baseline-edited.ts": 650,
+        "src/feature.ts": 700,
+      },
+      results: [
+        { filePath: "src/baseline-edited.ts", lines: 699 },
+        { filePath: "src/feature.ts", lines: 701 },
+      ],
+    });
+    expect(findLocRatchetViolations({ ...scoped, maxLines: 500 })).toEqual([
+      {
+        filePath: "src/feature.ts",
+        lines: 701,
+        baselineLines: 700,
+        reason: "grew",
+      },
+      {
+        filePath: "src/baseline-edited.ts",
+        lines: 699,
+        baselineLines: 650,
+        reason: "grew",
+      },
     ]);
   });
 
