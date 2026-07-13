@@ -105,7 +105,7 @@ export function resolveCronDeliveryBestEffort(job: CronJob): boolean {
 }
 
 /** Successful delivery-target resolution consumed by announce/direct delivery dispatch. */
-export type SuccessfulDeliveryTarget = Extract<DeliveryTargetResolution, { ok: true }>;
+type SuccessfulDeliveryTarget = Extract<DeliveryTargetResolution, { ok: true }>;
 
 type DispatchCronDeliveryParams = {
   cfg: OpenClawConfig;
@@ -155,7 +155,7 @@ type DirectCronTranscriptMirror = {
 };
 
 /** Mutable delivery-dispatch accumulator returned to the isolated cron runner. */
-export type DispatchCronDeliveryState = {
+type DispatchCronDeliveryState = {
   result?: RunCronAgentTurnResult;
   delivered: boolean;
   deliveryAttempted: boolean;
