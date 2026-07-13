@@ -14,7 +14,7 @@ import {
   createTestRegistry,
 } from "../../test-utils/channel-plugins.js";
 import type { ReplyPayload } from "../types.js";
-import type { ReplyDispatcher } from "./reply-dispatcher.js";
+import type { ReplyDispatcher } from "./reply-dispatcher.types.js";
 import { buildTestCtx } from "./test-ctx.js";
 
 type AbortResult = { handled: boolean; aborted: boolean; stoppedSubagents?: number };
