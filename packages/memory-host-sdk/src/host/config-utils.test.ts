@@ -9,7 +9,7 @@ describe("parseDurationMs", () => {
   });
 
   it("rejects unsafe millisecond results", () => {
-    expect(() => parseDurationMs("9007199254740993ms")).toThrow(/invalid duration/u);
-    expect(() => parseDurationMs("9007199254740990ms10ms")).toThrow(/invalid duration/u);
+    expect(() => parseDurationMs("9007199254740993ms")).toThrow(/invalid duration/iu);
+    expect(() => parseDurationMs("9007199254740990ms10ms")).toThrow(/invalid duration/iu);
   });
 });

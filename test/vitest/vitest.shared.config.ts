@@ -402,6 +402,10 @@ export const sharedVitestConfig = {
         ),
       },
       {
+        find: "@openclaw/normalization-core/duration",
+        replacement: path.join(repoRoot, "packages", "normalization-core", "src", "duration.ts"),
+      },
+      {
         find: "@openclaw/normalization-core/error-coercion",
         replacement: path.join(
           repoRoot,
