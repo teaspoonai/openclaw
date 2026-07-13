@@ -550,9 +550,13 @@ describe("qa suite", () => {
         smokeArtifactPath: "crabline-fake-provider-smoke.json",
       },
       runCrablineChannelDriverSmoke: vi.fn(async () => ({
+        artifactPointerPath: path.join(outputDir, "crabline-generations", "pointer.json"),
         capabilityMatrixPath,
         capabilityReport: {},
+        generation: "generation-1",
         manifestPath: path.join(outputDir, "crabline-generations", "generation-1", "manifest.json"),
+        providerReadiness: {},
+        providerReadinessArtifactPath: smokeArtifactPath,
         smoke: {},
         smokeArtifactPath,
       })),
