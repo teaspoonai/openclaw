@@ -1,6 +1,11 @@
 // Memory Host SDK module implements backend config behavior.
 import fs from "node:fs";
 import path from "node:path";
+import { normalizeLowercaseStringOrEmpty } from "@openclaw/normalization-core/string-coerce";
+import {
+  normalizeStringEntries,
+  uniqueStrings,
+} from "@openclaw/normalization-core/string-normalization";
 import {
   CANONICAL_ROOT_MEMORY_FILENAME,
   type MemoryBackend,
@@ -19,11 +24,6 @@ import {
   splitShellArgs,
 } from "./config-utils.js";
 import { isPathInside } from "./fs-utils.js";
-import {
-  normalizeLowercaseStringOrEmpty,
-  normalizeStringEntries,
-  uniqueStrings,
-} from "./string-utils.js";
 
 function escapeQmdExactFilePattern(fileName: string): string {
   return fileName.replace(/[\\*?[\]{}()!+@]/g, "\\$&");
