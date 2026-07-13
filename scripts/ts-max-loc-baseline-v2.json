@@ -619,7 +619,7 @@
   "src/agents/sessions/extensions/types.ts": 1696,
   "src/agents/sessions/model-registry.ts": 955,
   "src/agents/sessions/model-resolver.ts": 635,
-  "src/agents/sessions/package-manager.ts": 1528,
+  "src/agents/sessions/package-manager.ts": 1524,
   "src/agents/sessions/resource-loader.ts": 1038,
   "src/agents/sessions/sdk.ts": 510,
   "src/agents/sessions/session-manager.ts": 3342,
