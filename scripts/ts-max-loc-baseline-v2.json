@@ -534,7 +534,7 @@
   "src/agents/code-mode.ts": 1753,
   "src/agents/code-mode.worker.ts": 793,
   "src/agents/command/attempt-execution.helpers.ts": 542,
-  "src/agents/command/attempt-execution.ts": 1417,
+  "src/agents/command/attempt-execution.ts": 1414,
   "src/agents/command/cli-compaction.ts": 809,
   "src/agents/command/delivery.ts": 968,
   "src/agents/command/session-store.ts": 566,
