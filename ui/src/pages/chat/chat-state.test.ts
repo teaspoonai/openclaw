@@ -1,4 +1,4 @@
-import type { ReactiveController, ReactiveControllerHost } from "lit";
+import type { ReactiveController } from "lit";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SLASH_COMMANDS } from "../../lib/chat/commands.ts";
 import { createStorageMock } from "../../test-helpers/storage.ts";

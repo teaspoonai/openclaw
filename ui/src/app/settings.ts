@@ -500,11 +500,10 @@ export function resetUnpersistedSettingsForTest() {
 }
 
 export function loadSettings(): UiSettings {
-  if (unpersistedSettings) {
-    return {
-      ...unpersistedSettings,
-      token: loadSessionToken(unpersistedSettings.gatewayUrl),
-    };
+  const cached = unpersistedSettings;
+  if (cached) {
+    // Gateway auth stays session-scoped; re-derive it instead of caching it.
+    return { ...cached, token: loadSessionToken(cached.gatewayUrl) };
   }
   const { pageUrl: pageDerivedUrl, effectiveUrl: defaultUrl } = deriveDefaultGatewayUrl();
   const storage = getSafeLocalStorage();
