@@ -6,8 +6,8 @@ import type { StuckSessionRecoveryOutcome } from "../../logging/diagnostic-sessi
 import type {
   PluginHookBeforeDispatchResult,
   PluginHookReplyDispatchResult,
-  PluginTargetedInboundClaimOutcome,
-} from "../../plugins/hooks.js";
+} from "../../plugins/hook-types.js";
+import type { createHookRunner } from "../../plugins/hooks.js";
 import { setActivePluginRegistry } from "../../plugins/runtime.js";
 import {
   createChannelTestPluginBase,
@@ -18,6 +18,9 @@ import type { ReplyDispatcher } from "./reply-dispatcher.js";
 import { buildTestCtx } from "./test-ctx.js";
 
 type AbortResult = { handled: boolean; aborted: boolean; stoppedSubagents?: number };
+type PluginTargetedInboundClaimOutcome = Awaited<
+  ReturnType<ReturnType<typeof createHookRunner>["runInboundClaimForPluginOutcome"]>
+>;
 
 const mocks = vi.hoisted(() => ({
   routeReply: vi.fn(async (_params: unknown) => ({ ok: true, messageId: "mock" })),

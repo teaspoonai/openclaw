@@ -28,7 +28,7 @@ import type {
   PluginHookBeforeDispatchResult,
   PluginHookReplyDispatchResult,
   PluginTargetedInboundClaimOutcome,
-} from "../../plugins/hooks.js";
+} from "../../plugins/hooks.test-fixtures.js";
 import { setActivePluginRegistry } from "../../plugins/runtime.js";
 import {
   interruptSessionWorkAdmissions,
