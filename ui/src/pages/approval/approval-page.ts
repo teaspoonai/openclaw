@@ -168,7 +168,7 @@ function terminalDescription(approval: ApprovalSnapshot, origin: ResolutionOrigi
   return unreachable;
 }
 
-class ApprovalPage extends OpenClawLightDomElement {
+export class ApprovalPage extends OpenClawLightDomElement {
   @consume({ context: applicationContext, subscribe: false })
   context!: ApplicationContext<RouteId>;
 
@@ -663,8 +663,4 @@ class ApprovalPage extends OpenClawLightDomElement {
     document.title = title;
     this.activeDocumentTitle = title;
   }
-}
-
-if (!customElements.get("openclaw-approval-page")) {
-  customElements.define("openclaw-approval-page", ApprovalPage);
 }
