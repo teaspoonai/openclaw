@@ -203,6 +203,10 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     return 0;
   }
 
+  // Deliberate trade-off: baseline raises are legal but must land as visible
+  // baseline diffs reviewed in the same PR (same contract as the deadcode
+  // exports ratchet). A base-ref comparison that rejected every raise made all
+  // legitimate growth unlandable and deadlocked merges fleet-wide.
   const baseline = await readBaseline(baselinePath);
   const violations = findLocRatchetViolations({ baseline, maxLines, results });
   reportViolations(violations);
