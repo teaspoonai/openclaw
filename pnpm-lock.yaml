@@ -154,6 +154,9 @@ importers:
       minimatch:
         specifier: 10.2.5
         version: 10.2.5
+      ms:
+        specifier: 2.1.3
+        version: 2.1.3
       node-edge-tts:
         specifier: 1.2.10
         version: 1.2.10
@@ -166,6 +169,9 @@ importers:
       playwright-core:
         specifier: 1.61.1
         version: 1.61.1
+      pretty-ms:
+        specifier: 9.3.0
+        version: 9.3.0
       proper-lockfile:
         specifier: 4.1.2
         version: 4.1.2
@@ -248,6 +254,9 @@ importers:
       '@types/markdown-it':
         specifier: 14.1.2
         version: 14.1.2
+      '@types/ms':
+        specifier: 2.1.0
+        version: 2.1.0
       '@types/node':
         specifier: 26.1.0
         version: 26.1.0
@@ -581,19 +590,6 @@ importers:
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
 
-  extensions/workspaces:
-    dependencies:
-      typebox:
-        specifier: 1.3.3
-        version: 1.3.3
-    devDependencies:
-      '@openclaw/plugin-sdk':
-        specifier: workspace:*
-        version: link:../../packages/plugin-sdk
-      openclaw:
-        specifier: workspace:*
-        version: link:../..
-
   extensions/crabbox:
     devDependencies:
       '@openclaw/plugin-sdk':
@@ -842,6 +838,9 @@ importers:
       commander:
         specifier: 15.0.0
         version: 15.0.0
+      pretty-ms:
+        specifier: 9.3.0
+        version: 9.3.0
       typebox:
         specifier: 1.3.3
         version: 1.3.3
@@ -1390,6 +1389,9 @@ importers:
       playwright-core:
         specifier: 1.61.1
         version: 1.61.1
+      pretty-ms:
+        specifier: 9.3.0
+        version: 9.3.0
       yaml:
         specifier: 2.9.0
         version: 2.9.0
@@ -1418,6 +1420,9 @@ importers:
 
   extensions/qa-matrix:
     dependencies:
+      pretty-ms:
+        specifier: 9.3.0
+        version: 9.3.0
       undici:
         specifier: 8.5.0
         version: 8.5.0
@@ -1446,6 +1451,9 @@ importers:
       mpg123-decoder:
         specifier: 1.0.3
         version: 1.0.3
+      pretty-ms:
+        specifier: 9.3.0
+        version: 9.3.0
       silk-wasm:
         specifier: 3.7.1
         version: 3.7.1
@@ -1811,6 +1819,19 @@ importers:
         specifier: workspace:*
         version: link:../..
 
+  extensions/workspaces:
+    dependencies:
+      typebox:
+        specifier: 1.3.3
+        version: 1.3.3
+    devDependencies:
+      '@openclaw/plugin-sdk':
+        specifier: workspace:*
+        version: link:../../packages/plugin-sdk
+      openclaw:
+        specifier: workspace:*
+        version: link:../..
+
   extensions/xai:
     dependencies:
       typebox:
@@ -1975,11 +1996,11 @@ importers:
 
   packages/normalization-core: {}
 
-  packages/retry: {}
-
   packages/plugin-package-contract: {}
 
   packages/plugin-sdk: {}
+
+  packages/retry: {}
 
   packages/sdk:
     dependencies:
@@ -7244,13 +7265,13 @@ packages:
     resolution: {integrity: sha512-stxByr12oeeOyY2BlviTNQlYV5xOj47GirPr4yA1hE9JCtxfQN0+tVbkxwCtYDQWhEKWFHsEK48ORg5jrouCAg==}
     engines: {node: '>=20'}
 
-  smol-toml@1.7.0:
-    resolution: {integrity: sha512-aqVvWoyO21L23mb+drl4RmMXbf6N7FdHjAhTRA9ZBL7apWBgfWC16KjrASI+1p9GAroljyMHj6fK67i0UiTNvQ==}
-    engines: {node: '>=18'}
-
   smart-buffer@4.2.0:
     resolution: {integrity: sha512-94hK0Hh8rPqQl2xXc3HsaBoOXKV20MToPkcXvwbISWLEs+64sBq5kFgn2kJDHb1Pry9yrP0dxrCI9RRci7RXKg==}
     engines: {node: '>= 6.0.0', npm: '>= 3.0.0'}
+
+  smol-toml@1.7.0:
+    resolution: {integrity: sha512-aqVvWoyO21L23mb+drl4RmMXbf6N7FdHjAhTRA9ZBL7apWBgfWC16KjrASI+1p9GAroljyMHj6fK67i0UiTNvQ==}
+    engines: {node: '>= 18'}
 
   socks-proxy-agent@8.0.5:
     resolution: {integrity: sha512-HehCEsotFqbPW9sJ8WVYB6UbmIMv7kUUORIF2Nncq4VQvBfNBLibW9YZR5dlYCSUhwcD628pRllm7n+E+YTzJw==}
@@ -9402,6 +9423,15 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
+  '@modelcontextprotocol/ext-apps@1.7.4(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.4.3)':
+    dependencies:
+      '@modelcontextprotocol/sdk': 1.29.0(zod@4.4.3)
+      '@standard-schema/spec': 1.1.0
+      zod: 4.4.3
+    optionalDependencies:
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
+
   '@modelcontextprotocol/sdk@1.29.0(zod@4.4.3)':
     dependencies:
       '@hono/node-server': 1.19.14(hono@4.12.25)
@@ -9423,15 +9453,6 @@ snapshots:
       zod-to-json-schema: 3.25.2(zod@4.4.3)
     transitivePeerDependencies:
       - supports-color
-
-  '@modelcontextprotocol/ext-apps@1.7.4(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.4.3)':
-    dependencies:
-      '@modelcontextprotocol/sdk': 1.29.0(zod@4.4.3)
-      '@standard-schema/spec': 1.1.0
-      zod: 4.4.3
-    optionalDependencies:
-      react: 19.2.4
-      react-dom: 19.2.4(react@19.2.4)
 
   '@mozilla/readability@0.6.0': {}
 
@@ -13174,8 +13195,7 @@ snapshots:
   parse-ms@3.0.0:
     optional: true
 
-  parse-ms@4.0.0:
-    optional: true
+  parse-ms@4.0.0: {}
 
   parse5@8.0.1:
     dependencies:
@@ -13257,7 +13277,6 @@ snapshots:
   pretty-ms@9.3.0:
     dependencies:
       parse-ms: 4.0.0
-    optional: true
 
   prism-media@1.3.5: {}
 
@@ -13785,9 +13804,9 @@ snapshots:
       is-fullwidth-code-point: 5.1.0
     optional: true
 
-  smol-toml@1.7.0: {}
-
   smart-buffer@4.2.0: {}
+
+  smol-toml@1.7.0: {}
 
   socks-proxy-agent@8.0.5:
     dependencies:
