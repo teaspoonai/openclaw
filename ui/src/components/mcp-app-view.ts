@@ -133,7 +133,7 @@ class OpenClawAppBridge extends AppBridge {
   }
 }
 
-class McpAppView extends LitElement {
+export class McpAppView extends LitElement {
   static override styles = css`
     :host {
       display: block;
@@ -366,10 +366,6 @@ class McpAppView extends LitElement {
         ? html`<div class="error">${t("mcpApp.unavailable", { error: this.error })}</div>`
         : nothing}`;
   }
-}
-
-if (!customElements.get("mcp-app-view")) {
-  customElements.define("mcp-app-view", McpAppView);
 }
 
 declare global {
