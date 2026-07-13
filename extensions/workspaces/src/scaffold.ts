@@ -8,7 +8,7 @@ import path from "node:path";
 import { resolveStateDir } from "openclaw/plugin-sdk/state-paths";
 import { validateWidgetManifest } from "./manifest.js";
 
-export type WorkspaceScaffoldOptions = {
+type WorkspaceScaffoldOptions = {
   name: string;
   title?: string;
   stateDir?: string;
@@ -16,7 +16,7 @@ export type WorkspaceScaffoldOptions = {
   createdBy?: string;
 };
 
-export type WorkspaceScaffoldResult = {
+type WorkspaceScaffoldResult = {
   name: string;
   title: string;
   dir: string;
