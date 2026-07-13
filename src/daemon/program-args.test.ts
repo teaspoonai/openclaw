@@ -1,7 +1,6 @@
 // Daemon program argument tests cover CLI argument construction for services.
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { resetWindowsInstallRootsForTests } from "../infra/windows-install-roots.js";
 import { withMockedWindowsPlatform } from "../test-utils/vitest-spies.js";
 
 const childProcessMocks = vi.hoisted(() => ({
@@ -46,7 +45,6 @@ afterEach(() => {
   process.argv = [...originalArgv];
   vi.resetAllMocks();
   vi.unstubAllEnvs();
-  resetWindowsInstallRootsForTests();
 });
 
 describe("resolveGatewayProgramArguments", () => {
@@ -188,7 +186,6 @@ describe("resolveGatewayProgramArguments", () => {
     const repoEntryPath = path.resolve("/repo/src/entry.ts");
     process.argv = [String.raw`D:\nodejs\node.exe`, repoIndexPath];
     vi.stubEnv("SystemRoot", String.raw`D:\Windows`);
-    resetWindowsInstallRootsForTests({ queryRegistryValue: () => null });
     fsMocks.realpath.mockResolvedValue(repoIndexPath);
     fsMocks.access.mockResolvedValue(undefined);
     childProcessMocks.execFileSync.mockReturnValue(String.raw`D:\Tools\bun.exe` + "\r\n");

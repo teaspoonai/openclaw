@@ -1114,7 +1114,6 @@ describe("createFollowupRunner reply-lane admission", () => {
     const realAgentEvents = await vi.importActual<typeof import("../../infra/agent-events.js")>(
       "../../infra/agent-events.js",
     );
-    realAgentEvents.resetAgentRunContextForTest();
     const active = createReplyOperationForTest({
       sessionKey: "main",
       sessionId: "pre-compact-session",
@@ -1169,7 +1168,6 @@ describe("createFollowupRunner reply-lane admission", () => {
     expect(realAgentEvents.getAgentRunContext(observedRunId ?? "")?.sessionId).toBe(
       "post-compact-session",
     );
-    realAgentEvents.resetAgentRunContextForTest();
   });
 
   it("routes preflight compaction failures before starting queued followup runs", async () => {
@@ -4694,7 +4692,6 @@ describe("createFollowupRunner compaction", () => {
     const realAgentEvents = await vi.importActual<typeof import("../../infra/agent-events.js")>(
       "../../infra/agent-events.js",
     );
-    realAgentEvents.resetAgentRunContextForTest();
     const sessionEntry: SessionEntry = {
       sessionId: "old-session",
       updatedAt: Date.now(),
@@ -4750,14 +4747,12 @@ describe("createFollowupRunner compaction", () => {
 
     expect(observedRunId).toBeDefined();
     expect(realAgentEvents.getAgentRunContext(observedRunId ?? "")?.sessionId).toBe("new-session");
-    realAgentEvents.resetAgentRunContextForTest();
   });
 
   it("captures follow-up lifecycle ownership before asynchronous preflight", async () => {
     const realAgentEvents = await vi.importActual<typeof import("../../infra/agent-events.js")>(
       "../../infra/agent-events.js",
     );
-    realAgentEvents.resetAgentRunContextForTest();
     const initialGeneration = realAgentEvents.getAgentEventLifecycleGeneration();
     let releasePreflight: (() => void) | undefined;
     runPreflightCompactionIfNeededMock.mockImplementationOnce(
@@ -4825,7 +4820,6 @@ describe("createFollowupRunner compaction", () => {
       expect(observedLifecycleGeneration).toBe(initialGeneration);
       expect(realAgentEvents.getAgentRunContext(registeredRun?.runId ?? "")).toBeUndefined();
     } finally {
-      realAgentEvents.resetAgentRunContextForTest();
     }
   });
 });
