@@ -527,9 +527,9 @@ describeControlUiE2e("Control UI chat composer redesign", () => {
       expect(mobilePickerBox.x + mobilePickerBox.width).toBeLessThanOrEqual(393);
       await model.click();
       await settings.click();
-      await expect.poll(() => settingsDialog.isVisible()).toBe(true);
+      await expect.poll(() => viewMenu.isVisible()).toBe(true);
       await settings.click();
-      await expect.poll(() => settingsDialog.isVisible()).toBe(false);
+      await expect.poll(() => viewMenu.isVisible()).toBe(false);
     } finally {
       await context.close();
       await browser.close();
