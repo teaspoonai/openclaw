@@ -22,6 +22,7 @@ import type { OpenClawConfig } from "../../config/types.openclaw.js";
 import type { TtsAutoMode } from "../../config/types.tts.js";
 import { isSuppressedControlReplyText } from "../../gateway/control-reply-text.js";
 import { sleepWithAbort } from "../../infra/backoff.js";
+import { isProvenDeliveryNotSentError } from "../../infra/delivery-recovery.shared.js";
 import { formatErrorMessage } from "../../infra/errors.js";
 import type {
   NormalizedOutboundPayload,
@@ -166,17 +167,6 @@ export type DispatchCronDeliveryState = {
   synthesizedText?: string;
   deliveryPayloads: ReplyPayload[];
 };
-
-const TRANSIENT_DIRECT_CRON_DELIVERY_ERROR_PATTERNS: readonly RegExp[] = [
-  /\berrorcode=unavailable\b/i,
-  /\bstatus\s*[:=]\s*"?unavailable\b/i,
-  /\bUNAVAILABLE\b/,
-  /no active .* listener/i,
-  /gateway not connected/i,
-  /gateway closed \(1006/i,
-  /gateway timeout/i,
-  /\b(econnreset|econnrefused|etimedout|enotfound|ehostunreach|network error)\b/i,
-];
 
 const PERMANENT_DIRECT_CRON_DELIVERY_ERROR_PATTERNS: readonly RegExp[] = [
   /unsupported channel/i,
@@ -956,7 +946,7 @@ function isTransientDirectCronDeliveryError(error: unknown): boolean {
   if (PERMANENT_DIRECT_CRON_DELIVERY_ERROR_PATTERNS.some((re) => re.test(message))) {
     return false;
   }
-  return TRANSIENT_DIRECT_CRON_DELIVERY_ERROR_PATTERNS.some((re) => re.test(message));
+  return isProvenDeliveryNotSentError(error);
 }
 
 function resolveDirectCronRetryDelaysMs(): readonly number[] {
@@ -969,6 +959,7 @@ async function retryTransientDirectCronDelivery<T>(params: {
   jobId: string;
   signal?: AbortSignal;
   run: () => Promise<T>;
+  shouldRetryError?: (err: unknown) => boolean;
 }): Promise<T> {
   const retryDelaysMs = resolveDirectCronRetryDelaysMs();
   if (params.signal?.aborted) {
@@ -986,7 +977,9 @@ async function retryTransientDirectCronDelivery<T>(params: {
     maxDelayMs: Math.max(...retryDelaysMs),
     delayMs: ({ attempt }) => retryDelaysMs[attempt - 1] ?? 0,
     shouldRetry: (err) =>
-      params.signal?.aborted !== true && isTransientDirectCronDeliveryError(err),
+      params.signal?.aborted !== true &&
+      isTransientDirectCronDeliveryError(err) &&
+      (params.shouldRetryError?.(err) ?? true),
     onRetry: async ({ attempt, maxAttempts, delayMs, err }) => {
       await logCronDeliveryWarn(
         `[cron:${params.jobId}] transient direct announce delivery failure, retrying ${attempt + 1}/${maxAttempts} in ${Math.round(delayMs / 1000)}s: ${summarizeDirectCronDeliveryError(err)}`,
@@ -1201,7 +1194,22 @@ export async function dispatchCronDelivery(
       // Track bestEffort partial failures so we can log them and avoid
       // marking the job as delivered when payloads were silently dropped.
       let hadPartialFailure = false;
-      let partialDeliverySucceededBeforeFailure = false;
+      let payloadMayHaveReachedRecipientBeforeFailure = false;
+      const notePotentiallyRecipientVisiblePayload = (outcome: {
+        status: string;
+        reason?: string;
+        sentBeforeError?: boolean;
+      }) => {
+        // No durable id is still ambiguous: the adapter was already invoked, so
+        // a later proven-not-sent payload must not replay the whole batch.
+        if (
+          outcome.status === "sent" ||
+          outcome.sentBeforeError === true ||
+          (outcome.status === "suppressed" && outcome.reason === "adapter_returned_no_identity")
+        ) {
+          payloadMayHaveReachedRecipientBeforeFailure = true;
+        }
+      };
       // `onPayload` fires after send hooks render the outbound payload, but before
       // platform send. The mirror only consumes this array after full delivery succeeds.
       const attemptedPayloadsForMirror: NormalizedOutboundPayload[] = [];
@@ -1234,6 +1242,7 @@ export async function dispatchCronDelivery(
           onPayload: (payload) => {
             attemptedPayloadsForMirror.push(payload);
           },
+          onPayloadDeliveryOutcome: notePotentiallyRecipientVisiblePayload,
           // Isolated cron direct delivery uses its own transient retry loop.
           // Keep all attempts out of the write-ahead delivery queue so a
           // late-successful first send cannot leave behind a failed queue
@@ -1245,7 +1254,7 @@ export async function dispatchCronDelivery(
           throw send.error;
         }
         if (send.status === "partial_failed") {
-          partialDeliverySucceededBeforeFailure = send.results.length > 0;
+          payloadMayHaveReachedRecipientBeforeFailure = true;
           if (!params.deliveryBestEffort) {
             throw send.error;
           }
@@ -1261,6 +1270,7 @@ export async function dispatchCronDelivery(
               jobId: params.job.id,
               signal: params.abortSignal,
               run: runDelivery,
+              shouldRetryError: () => !payloadMayHaveReachedRecipientBeforeFailure,
             })
           : await runDelivery();
       } catch (err) {
@@ -1270,7 +1280,7 @@ export async function dispatchCronDelivery(
           to: delivery.to,
           threadId: stringifyRouteThreadId(delivery.threadId),
           error: err,
-          partialDelivered: partialDeliverySucceededBeforeFailure,
+          partialDelivered: payloadMayHaveReachedRecipientBeforeFailure,
         });
         await queueCronAwarenessSystemEvent({
           cfg: params.cfgWithAgentDefaults,
