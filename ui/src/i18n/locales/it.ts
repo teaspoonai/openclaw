@@ -3596,6 +3596,14 @@ export const it: TranslationMap = {
       remove: "Rimuovi",
       more: "Altre azioni",
     },
+    runNotStarted: {
+      notDue: "Questa automazione non è ancora in scadenza.",
+      alreadyRunning: "Questa automazione è già in esecuzione.",
+      recoveryPending: "Il ripristino dell'utilità di pianificazione è ancora in corso.",
+      invalidSpec: "Questa automazione presenta una pianificazione o un payload non valido.",
+      stopped: "L'utilità di pianificazione è stata arrestata.",
+      unknown: "Non è stato possibile avviare questa automazione.",
+    },
     jobs: {
       schedule: "Pianificazione",
       lastRun: "Ultima esecuzione",

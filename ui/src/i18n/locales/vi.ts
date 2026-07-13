@@ -3553,6 +3553,14 @@ export const vi: TranslationMap = {
       remove: "Xóa",
       more: "Thêm hành động",
     },
+    runNotStarted: {
+      notDue: "Tác vụ tự động này chưa đến hạn.",
+      alreadyRunning: "Tác vụ tự động này đang chạy.",
+      recoveryPending: "Quá trình khôi phục bộ lập lịch vẫn đang diễn ra.",
+      invalidSpec: "Tác vụ tự động này có lịch biểu hoặc tải trọng không hợp lệ.",
+      stopped: "Bộ lập lịch đã dừng.",
+      unknown: "Không thể khởi chạy tác vụ tự động này.",
+    },
     jobs: {
       schedule: "Lịch",
       lastRun: "Lần chạy gần nhất",

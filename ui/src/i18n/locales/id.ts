@@ -3565,6 +3565,14 @@ export const id: TranslationMap = {
       remove: "Hapus",
       more: "Tindakan lainnya",
     },
+    runNotStarted: {
+      notDue: "Otomatisasi ini belum waktunya dijalankan.",
+      alreadyRunning: "Otomatisasi ini sudah berjalan.",
+      recoveryPending: "Pemulihan penjadwal masih berlangsung.",
+      invalidSpec: "Otomatisasi ini memiliki jadwal atau payload yang tidak valid.",
+      stopped: "Penjadwal dihentikan.",
+      unknown: "Otomatisasi ini tidak dapat dimulai.",
+    },
     jobs: {
       schedule: "Jadwal",
       lastRun: "Terakhir dijalankan",

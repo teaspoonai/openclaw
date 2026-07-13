@@ -3592,6 +3592,14 @@ export const es: TranslationMap = {
       remove: "Eliminar",
       more: "Más acciones",
     },
+    runNotStarted: {
+      notDue: "Esta automatización aún no debe ejecutarse.",
+      alreadyRunning: "Esta automatización ya se está ejecutando.",
+      recoveryPending: "La recuperación del programador aún está en curso.",
+      invalidSpec: "Esta automatización tiene una programación o una carga útil no válidas.",
+      stopped: "El programador está detenido.",
+      unknown: "No se pudo iniciar esta automatización.",
+    },
     jobs: {
       schedule: "Programación",
       lastRun: "Última ejecución",
