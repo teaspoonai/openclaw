@@ -1,13 +1,7 @@
-/** Windows ACL audit facade backed by shared infra permission helpers. */
+/** Windows ACL remediation facade backed by fs-safe defaults. */
 export {
   createIcaclsResetCommand,
   formatIcaclsResetCommand,
-  formatWindowsAclSummary,
-  inspectWindowsAcl,
-  parseIcaclsOutput,
-  resolveWindowsUserPrincipal,
-  summarizeWindowsAcl,
-  type ExecFn,
-  type WindowsAclEntry,
-  type WindowsAclSummary,
-} from "../infra/permissions.js";
+  type PermissionExec as ExecFn,
+} from "@openclaw/fs-safe/advanced";
+import "../infra/fs-safe-defaults.js";
