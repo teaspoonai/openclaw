@@ -1,6 +1,6 @@
 import type { AppBridge } from "@modelcontextprotocol/ext-apps/app-bridge";
 
-export type McpAppHostCapabilities = ConstructorParameters<typeof AppBridge>[2];
+type McpAppHostCapabilities = ConstructorParameters<typeof AppBridge>[2];
 export type McpAppHostSandboxCsp = NonNullable<
   NonNullable<McpAppHostCapabilities["sandbox"]>["csp"]
 >;

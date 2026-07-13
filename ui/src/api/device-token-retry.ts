@@ -1,4 +1,4 @@
-export type DeviceTokenRetryDecision = {
+type DeviceTokenRetryDecision = {
   deviceTokenRetryBudgetUsed: boolean;
   authDeviceToken?: string;
   explicitGatewayToken?: string;

@@ -7,7 +7,7 @@ import type { IconName } from "./icons.ts";
 
 const CRON_OVERDUE_GRACE_MS = 300_000;
 
-export type SidebarAttentionItem = {
+type SidebarAttentionItem = {
   severity: "error" | "warning";
   icon: IconName;
   label: string;
