@@ -15,9 +15,11 @@ type CreateGhosttyTerminalMock = Mock<
   (options: CreateOptions) => Promise<ReturnType<typeof createTerminalController>>
 >;
 
-// Vitest resets this test module but can retain terminal-panel.ts. Reuse one
-// mock so retained imports and the current test graph share the same identity.
+// The non-isolated runner can cache terminal-panel.ts before this file installs
+// its runtime mock. Reset that graph first, then preserve one mock identity if
+// Vitest reloads this test module later in the same worker.
 const createGhosttyTerminalMock = vi.hoisted(() => {
+  vi.resetModules();
   const scope = globalThis as typeof globalThis & {
     openclawTestCreateGhosttyTerminalMock?: CreateGhosttyTerminalMock;
   };
