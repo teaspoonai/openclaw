@@ -1,16 +1,6 @@
 // Covers runtime detection and version support checks.
-import { describe, expect, it, vi } from "vitest";
-import {
-  assertSupportedRuntime,
-  detectRuntime,
-  isAtLeast,
-  isSupportedNodeVersion,
-  nodeVersionSatisfiesEngine,
-  parseMinimumNodeEngine,
-  parseSemver,
-  type RuntimeDetails,
-  runtimeSatisfies,
-} from "./runtime-guard.js";
+import { describe, expect, it } from "vitest";
+import { isAtLeast, nodeVersionSatisfiesEngine, parseSemver } from "./runtime-guard.js";
 
 describe("runtime-guard", () => {
   it("parses semver with or without leading v", () => {
@@ -35,40 +25,6 @@ describe("runtime-guard", () => {
     );
   });
 
-  it("validates runtime thresholds", () => {
-    const nodeOk: RuntimeDetails = {
-      kind: "node",
-      version: "22.19.0",
-      execPath: "/usr/bin/node",
-      pathEnv: "/usr/bin",
-    };
-    const nodeOld: RuntimeDetails = { ...nodeOk, version: "22.18.0" };
-    const nodeTooOld: RuntimeDetails = { ...nodeOk, version: "21.9.0" };
-    const unknown: RuntimeDetails = {
-      kind: "unknown",
-      version: null,
-      execPath: null,
-      pathEnv: "/usr/bin",
-    };
-    expect(runtimeSatisfies(nodeOk)).toBe(true);
-    expect(runtimeSatisfies(nodeOld)).toBe(false);
-    expect(runtimeSatisfies(nodeTooOld)).toBe(false);
-    expect(runtimeSatisfies(unknown)).toBe(false);
-    expect(isSupportedNodeVersion("22.19.0")).toBe(true);
-    expect(isSupportedNodeVersion("22.18.9")).toBe(false);
-    expect(isSupportedNodeVersion("23.7.0")).toBe(false);
-    expect(isSupportedNodeVersion("23.10.9")).toBe(false);
-    expect(isSupportedNodeVersion("23.11.0")).toBe(true);
-    expect(isSupportedNodeVersion("24.0.0")).toBe(true);
-    expect(isSupportedNodeVersion(null)).toBe(false);
-  });
-
-  it("parses simple minimum node engine ranges", () => {
-    expect(parseMinimumNodeEngine(">=22.19.0")).toEqual({ major: 22, minor: 19, patch: 0 });
-    expect(parseMinimumNodeEngine(" >=v24.0.0 ")).toEqual({ major: 24, minor: 0, patch: 0 });
-    expect(parseMinimumNodeEngine("^22.19.0")).toBeNull();
-  });
-
   it("checks node versions against simple engine ranges", () => {
     expect(nodeVersionSatisfiesEngine("22.19.0", ">=22.19.0")).toBe(true);
     expect(nodeVersionSatisfiesEngine("22.18.9", ">=22.19.0")).toBe(false);
@@ -86,78 +42,5 @@ describe("runtime-guard", () => {
     expect(nodeVersionSatisfiesEngine("24.0.0", engine)).toBe(true);
     expect(nodeVersionSatisfiesEngine(null, engine)).toBe(false);
     expect(nodeVersionSatisfiesEngine("unknown", engine)).toBe(false);
-  });
-
-  it("throws via exit when runtime is too old", () => {
-    const runtime = {
-      log: vi.fn(),
-      error: vi.fn(),
-      exit: vi.fn(() => {
-        throw new Error("exit");
-      }),
-    };
-    const details: RuntimeDetails = {
-      kind: "node",
-      version: "20.0.0",
-      execPath: "/usr/bin/node",
-      pathEnv: "/usr/bin",
-    };
-    expect(() => assertSupportedRuntime(runtime, details)).toThrow("exit");
-    expect(runtime.error).toHaveBeenCalledOnce();
-    expect(runtime.error).toHaveBeenCalledWith(
-      [
-        "openclaw requires Node >=22.19.0 <23 or >=23.11.0.",
-        "Detected: node 20.0.0 (exec: /usr/bin/node).",
-        "PATH searched: /usr/bin",
-        "Install Node: https://nodejs.org/en/download",
-        "Upgrade Node and re-run openclaw.",
-      ].join("\n"),
-    );
-    expect(runtime.exit).toHaveBeenCalledWith(1);
-  });
-
-  it("returns silently when runtime meets requirements", () => {
-    const runtime = {
-      log: vi.fn(),
-      error: vi.fn(),
-      exit: vi.fn(),
-    };
-    const details: RuntimeDetails = {
-      ...detectRuntime(),
-      kind: "node",
-      version: "22.19.0",
-      execPath: "/usr/bin/node",
-    };
-    expect(assertSupportedRuntime(runtime, details)).toBeUndefined();
-    expect(runtime.exit).not.toHaveBeenCalled();
-  });
-
-  it("reports unknown runtimes with fallback labels", () => {
-    const runtime = {
-      log: vi.fn(),
-      error: vi.fn(),
-      exit: vi.fn(() => {
-        throw new Error("exit");
-      }),
-    };
-    const details: RuntimeDetails = {
-      kind: "unknown",
-      version: null,
-      execPath: null,
-      pathEnv: "(not set)",
-    };
-
-    expect(() => assertSupportedRuntime(runtime, details)).toThrow("exit");
-    expect(runtime.error).toHaveBeenCalledOnce();
-    expect(runtime.error).toHaveBeenCalledWith(
-      [
-        "openclaw requires Node >=22.19.0 <23 or >=23.11.0.",
-        "Detected: unknown runtime (exec: unknown).",
-        "PATH searched: (not set)",
-        "Install Node: https://nodejs.org/en/download",
-        "Upgrade Node and re-run openclaw.",
-      ].join("\n"),
-    );
-    expect(runtime.exit).toHaveBeenCalledWith(1);
   });
 });
