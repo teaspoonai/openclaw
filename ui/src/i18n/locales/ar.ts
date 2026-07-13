@@ -3555,6 +3555,14 @@ export const ar: TranslationMap = {
       more: "إجراءات إضافية",
       history: "السجل",
     },
+    runNotStarted: {
+      notDue: "لم يحن موعد تشغيل هذه الأتمتة بعد.",
+      alreadyRunning: "هذه الأتمتة قيد التشغيل بالفعل.",
+      recoveryPending: "لا تزال استعادة المجدول قيد التقدم.",
+      invalidSpec: "تحتوي هذه الأتمتة على جدول زمني أو حمولة غير صالحة.",
+      stopped: "المجدول متوقف.",
+      unknown: "تعذر تشغيل هذه الأتمتة.",
+    },
     jobs: {
       schedule: "الجدول",
       lastRun: "آخر تشغيل",

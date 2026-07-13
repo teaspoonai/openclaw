@@ -3605,6 +3605,14 @@ export const tr: TranslationMap = {
       more: "Diğer işlemler",
       history: "Geçmiş",
     },
+    runNotStarted: {
+      notDue: "Bu otomasyonun zamanı henüz gelmedi.",
+      alreadyRunning: "Bu otomasyon zaten çalışıyor.",
+      recoveryPending: "Zamanlayıcı kurtarma işlemi hâlâ devam ediyor.",
+      invalidSpec: "Bu otomasyonun zamanlaması veya yükü geçersiz.",
+      stopped: "Zamanlayıcı durduruldu.",
+      unknown: "Bu otomasyon başlatılamadı.",
+    },
     jobs: {
       schedule: "Zamanlama",
       lastRun: "Son çalıştırma",

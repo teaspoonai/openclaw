@@ -3578,6 +3578,14 @@ export const fa: TranslationMap = {
       more: "اقدامات بیشتر",
       history: "تاریخچه",
     },
+    runNotStarted: {
+      notDue: "هنوز زمان اجرای این خودکارسازی نرسیده است.",
+      alreadyRunning: "این خودکارسازی از قبل در حال اجرا است.",
+      recoveryPending: "بازیابی زمان‌بند همچنان در حال انجام است.",
+      invalidSpec: "زمان‌بندی یا بار دادهٔ این خودکارسازی نامعتبر است.",
+      stopped: "زمان‌بند متوقف شده است.",
+      unknown: "این خودکارسازی اجرا نشد.",
+    },
     jobs: {
       schedule: "زمان‌بندی",
       lastRun: "آخرین اجرا",

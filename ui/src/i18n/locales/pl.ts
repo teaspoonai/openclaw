@@ -3604,6 +3604,14 @@ export const pl: TranslationMap = {
       more: "Więcej akcji",
       history: "Historia",
     },
+    runNotStarted: {
+      notDue: "Nie nadszedł jeszcze czas uruchomienia tej automatyzacji.",
+      alreadyRunning: "Ta automatyzacja jest już uruchomiona.",
+      recoveryPending: "Nadal trwa odzyskiwanie harmonogramu.",
+      invalidSpec: "Ta automatyzacja ma nieprawidłowy harmonogram lub ładunek.",
+      stopped: "Harmonogram jest zatrzymany.",
+      unknown: "Nie udało się uruchomić tej automatyzacji.",
+    },
     jobs: {
       schedule: "Harmonogram",
       lastRun: "Ostatnie uruchomienie",

@@ -3637,6 +3637,15 @@ export const fr: TranslationMap = {
       more: "Plus d'actions",
       history: "Historique",
     },
+    runNotStarted: {
+      notDue: "Cette automatisation n’est pas encore prévue.",
+      alreadyRunning: "Cette automatisation est déjà en cours d’exécution.",
+      recoveryPending: "La récupération du planificateur est toujours en cours.",
+      invalidSpec:
+        "Cette automatisation comporte une planification ou une charge utile non valide.",
+      stopped: "Le planificateur est arrêté.",
+      unknown: "Cette automatisation n’a pas pu être démarrée.",
+    },
     jobs: {
       schedule: "Planification",
       lastRun: "Dernière exécution",

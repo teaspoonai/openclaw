@@ -3614,6 +3614,15 @@ export const de: TranslationMap = {
       more: "Weitere Aktionen",
       history: "Verlauf",
     },
+    runNotStarted: {
+      notDue: "Diese Automatisierung ist noch nicht fällig.",
+      alreadyRunning: "Diese Automatisierung wird bereits ausgeführt.",
+      recoveryPending: "Die Wiederherstellung des Zeitplaners läuft noch.",
+      invalidSpec:
+        "Diese Automatisierung hat einen ungültigen Zeitplan oder eine ungültige Nutzlast.",
+      stopped: "Der Zeitplaner wurde angehalten.",
+      unknown: "Diese Automatisierung konnte nicht gestartet werden.",
+    },
     jobs: {
       schedule: "Zeitplan",
       lastRun: "Letzte Ausführung",

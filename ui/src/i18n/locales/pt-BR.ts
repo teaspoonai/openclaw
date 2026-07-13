@@ -3592,6 +3592,14 @@ export const pt_BR: TranslationMap = {
       more: "Mais ações",
       history: "Histórico",
     },
+    runNotStarted: {
+      notDue: "Esta automação ainda não está programada para ser executada.",
+      alreadyRunning: "Esta automação já está em execução.",
+      recoveryPending: "A recuperação do agendador ainda está em andamento.",
+      invalidSpec: "Esta automação tem um agendamento ou conteúdo inválido.",
+      stopped: "O agendador está parado.",
+      unknown: "Não foi possível iniciar esta automação.",
+    },
     jobs: {
       schedule: "Agendamento",
       lastRun: "Última execução",

@@ -3551,6 +3551,14 @@ export const hi: TranslationMap = {
       more: "अधिक क्रियाएं",
       history: "इतिहास",
     },
+    runNotStarted: {
+      notDue: "इस ऑटोमेशन का समय अभी नहीं हुआ है।",
+      alreadyRunning: "यह ऑटोमेशन पहले से चल रहा है।",
+      recoveryPending: "शेड्यूलर की रिकवरी अभी भी जारी है।",
+      invalidSpec: "इस ऑटोमेशन का शेड्यूल या पेलोड अमान्य है।",
+      stopped: "शेड्यूलर बंद है।",
+      unknown: "यह ऑटोमेशन शुरू नहीं किया जा सका।",
+    },
     jobs: {
       schedule: "शेड्यूल",
       lastRun: "पिछला रन",
