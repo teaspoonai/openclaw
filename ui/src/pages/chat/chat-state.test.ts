@@ -1,4 +1,4 @@
-import type { ReactiveController } from "lit";
+import type { ReactiveController, ReactiveControllerHost } from "lit";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SLASH_COMMANDS } from "../../lib/chat/commands.ts";
 import { createStorageMock } from "../../test-helpers/storage.ts";
@@ -32,7 +32,6 @@ import {
   storedChatOutboxScopeKey,
 } from "./composer-persistence.ts";
 import { scheduleControlUiAfterPaint } from "./performance.ts";
-import type { RenderLifecycle } from "./render-lifecycle.ts";
 
 vi.mock("../../app/assistant-identity.ts", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../app/assistant-identity.ts")>()),
