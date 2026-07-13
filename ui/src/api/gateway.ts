@@ -30,10 +30,7 @@ import {
   signDevicePayload,
 } from "../lib/nodes/index.ts";
 import { generateUUID } from "../lib/uuid.ts";
-import {
-  isNonRecoverableConnectError,
-  resolveGatewayErrorDetailCode,
-} from "./reconnect-policy.ts";
+import { isNonRecoverableConnectError, resolveGatewayErrorDetailCode } from "./reconnect-policy.ts";
 
 export { resolveGatewayErrorDetailCode } from "./reconnect-policy.ts";
 
